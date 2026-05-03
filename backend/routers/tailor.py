@@ -11,10 +11,11 @@ DELETE /tailor/{id}           — soft delete (status → archived)
 import logging
 from datetime import datetime
 
-import bleach
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from middleware.auth_middleware import get_current_user
+from middleware.input_guard import guard_jd, guard_short
+from middleware.rate_limiter import tailor_rate_limit
 from models.profile import ApproveRequest, TailorRequest
 from services.ai_service import (
     analyze_jd,
@@ -37,7 +38,7 @@ router = APIRouter()
 @router.post("")
 async def run_tailor_pipeline(
     body: TailorRequest,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(tailor_rate_limit),
 ):
     """
     Three-step AI pipeline:
@@ -55,12 +56,12 @@ async def run_tailor_pipeline(
             detail="Profile not found. Please complete your profile before tailoring.",
         )
 
-    # Sanitize user inputs
-    jd_text = bleach.clean(body.jd_text, tags=[], strip=True)
-    job_title = bleach.clean(body.job_title, tags=[], strip=True)
-    company = bleach.clean(body.company, tags=[], strip=True)
+    # Sanitize and guard against prompt injection
+    jd_text = guard_jd(body.jd_text)
+    job_title = guard_short(body.job_title, "Job title")
+    company = guard_short(body.company, "Company name")
 
-    if not jd_text.strip():
+    if not jd_text:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Job description cannot be empty.",

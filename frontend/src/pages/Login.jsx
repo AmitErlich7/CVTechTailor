@@ -9,15 +9,12 @@ export default function Login() {
 
   useEffect(() => {
     if (isLoaded && isSignedIn && user) {
-      // Sync the user to MongoDB after Clerk auth
-      const provider =
-        user.externalAccounts?.[0]?.provider || 'google'
       syncUser({
-        clerk_user_id: user.id,
+        firebase_uid: user.id,
         email: user.primaryEmailAddress?.emailAddress || '',
         name: user.fullName || '',
         avatar: user.imageUrl || '',
-        provider,
+        provider: user.externalAccounts?.[0]?.provider || 'google',
       }).catch(() => {
         // Non-fatal: user can still use the app even if sync fails temporarily
       })
@@ -36,44 +33,7 @@ export default function Login() {
           </p>
         </div>
 
-        <AppSignIn
-          appearance={{
-            elements: {
-              rootBox: { width: '100%' },
-              card: {
-                boxShadow: 'none',
-                border: 'none',
-                padding: '0',
-                width: '100%',
-              },
-              headerTitle: { display: 'none' },
-              headerSubtitle: { display: 'none' },
-              socialButtonsBlockButton: {
-                border: '1px solid #e2e8f0',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '500',
-                padding: '10px 16px',
-                marginBottom: '8px',
-              },
-              dividerRow: { margin: '16px 0' },
-              formFieldInput: {
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                fontSize: '14px',
-              },
-              formButtonPrimary: {
-                background: '#2563eb',
-                borderRadius: '8px',
-                fontSize: '14px',
-                fontWeight: '600',
-              },
-              footerAction: { display: 'none' },
-            },
-          }}
-          redirectUrl="/dashboard"
-          routing="hash"
-        />
+        <AppSignIn />
 
         <p style={styles.note}>
           By signing in, you agree that the AI enhances your profile only with

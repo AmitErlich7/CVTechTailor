@@ -50,7 +50,7 @@ def get_db() -> AsyncIOMotorDatabase:
 async def _ensure_indexes() -> None:
     db = get_db()
     # Users
-    await db.users.create_index("clerk_user_id", unique=True)
+    await db.users.create_index("firebase_uid", unique=True)
     await db.users.create_index("email", unique=True)
     # Profiles
     await db.profiles.create_index("user_id", unique=True)
@@ -83,9 +83,9 @@ def _serialize(doc: Dict) -> Dict:
 # User CRUD
 # ---------------------------------------------------------------------------
 
-async def get_user_by_clerk_id(clerk_user_id: str) -> Optional[Dict]:
+async def get_user_by_firebase_uid(firebase_uid: str) -> Optional[Dict]:
     db = get_db()
-    doc = await db.users.find_one({"clerk_user_id": clerk_user_id})
+    doc = await db.users.find_one({"firebase_uid": firebase_uid})
     return _serialize(doc) if doc else None
 
 
@@ -102,19 +102,19 @@ async def create_user(user_data: Dict) -> Dict:
     return _serialize(doc)
 
 
-async def update_user_last_login(clerk_user_id: str) -> None:
+async def update_user_last_login(firebase_uid: str) -> None:
     db = get_db()
     await db.users.update_one(
-        {"clerk_user_id": clerk_user_id},
+        {"firebase_uid": firebase_uid},
         {"$set": {"last_login": datetime.utcnow()}},
     )
 
 
-async def add_provider_to_user(clerk_user_id: str, provider: str) -> None:
+async def add_provider_to_user(firebase_uid: str, provider: str) -> None:
     """Add a new OAuth provider to an existing user without duplication."""
     db = get_db()
     await db.users.update_one(
-        {"clerk_user_id": clerk_user_id},
+        {"firebase_uid": firebase_uid},
         {"$addToSet": {"provider": provider}, "$set": {"last_login": datetime.utcnow()}},
     )
 

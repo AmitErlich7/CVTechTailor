@@ -13,6 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, validator
 
 from middleware.auth_middleware import get_current_user
+from middleware.rate_limiter import github_rate_limit
 from models.project import GitHubProjectRaw, Project
 from services.ai_service import analyze_github_repo
 from services.github_service import build_repo_context, fetch_repo_data
@@ -36,7 +37,7 @@ class ConfirmRequest(BaseModel):
 @router.post("/import")
 async def import_github_repo(
     body: ImportRequest,
-    user_id: str = Depends(get_current_user),
+    user_id: str = Depends(github_rate_limit),
 ):
     """
     Analyze a GitHub repository and return a project card for review.

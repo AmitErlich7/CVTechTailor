@@ -1,4 +1,3 @@
-import { useAuth } from '@clerk/clerk-react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import AuthGuard from './components/AuthGuard.jsx'
 import Account from './pages/Account.jsx'

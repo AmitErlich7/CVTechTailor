@@ -1,6 +1,31 @@
+# Environment
 .env
 .env.local
 backend/.env
 frontend/.env
+
+# Secrets
+backend/serviceAccount.json
+
+# Frontend build output & dependencies
+frontend/dist/
+frontend/node_modules/
+
+# Backend cache
+backend/__pycache__/
+backend/**/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Test artifacts
 frontend/playwright-report/
 frontend/test-results/
+
+# Root-level Firebase CLI artifacts
+node_modules/
+package.json
+package-lock.json
+
+# Claude settings
+.claude/settings.local.json

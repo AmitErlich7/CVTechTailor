@@ -5,15 +5,15 @@ from pydantic import BaseModel, EmailStr, Field
 
 
 class UserCreate(BaseModel):
-    clerk_user_id: str
+    firebase_uid: str
     email: EmailStr
     name: str
     avatar: str
-    provider: str  # "google" or "linkedin"
+    provider: str  # "google"
 
 
 class UserDocument(BaseModel):
-    clerk_user_id: str
+    firebase_uid: str
     email: EmailStr
     name: str
     avatar: str
@@ -23,7 +23,7 @@ class UserDocument(BaseModel):
 
 
 class UserResponse(BaseModel):
-    clerk_user_id: str
+    firebase_uid: str
     email: str
     name: str
     avatar: str

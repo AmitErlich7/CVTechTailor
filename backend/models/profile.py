@@ -34,7 +34,7 @@ class Education(BaseModel):
 
 
 class ProfileDocument(BaseModel):
-    user_id: str  # clerk_user_id
+    user_id: str  # firebase_uid
     contact: ContactInfo = ContactInfo()
     summary: str = ""
     skills: List[str] = []
