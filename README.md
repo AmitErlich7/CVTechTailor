@@ -10,14 +10,14 @@ An AI-powered resume tailoring web app. Users sign in with Google or LinkedIn, b
 
 | Layer | Technology |
 |---|---|
-| Frontend | React (Vite), Clerk for auth |
+| Frontend | React (Vite), FireBase for auth |
 | Backend | Python, FastAPI (async) |
 | Database | MongoDB Atlas via Motor |
 | AI | Anthropic `claude-sonnet-4-6` |
 | GitHub import | PyGithub |
 | Export | python-docx (DOCX), reportlab (PDF) |
-| Frontend hosting | Vercel |
-| Backend hosting | AWS |
+| Frontend hosting | FireBase |
+| Backend hosting | Google Cloud |
 
 ---
 
@@ -25,7 +25,6 @@ An AI-powered resume tailoring web app. Users sign in with Google or LinkedIn, b
 
 - Node.js 18+
 - Python 3.11+
-- A [Clerk](https://clerk.com) account (free tier works)
 - A [MongoDB Atlas](https://cloud.mongodb.com) account (free M0 cluster works)
 - An [Anthropic](https://console.anthropic.com) API key
 - A GitHub account (optional, for repo import)
