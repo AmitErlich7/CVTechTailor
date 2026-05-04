@@ -22,10 +22,14 @@ backend/**/__pycache__/
 frontend/playwright-report/
 frontend/test-results/
 
-# Root-level Firebase CLI artifacts
+# Root-level artifacts
 node_modules/
 package.json
 package-lock.json
 
-# Claude settings
-.claude/settings.local.json
+# Claude Code internals
+.claude/
+skills-lock.json
+
+# SQLite database
+backend/resume_tailor.db

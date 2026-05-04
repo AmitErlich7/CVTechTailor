@@ -36,41 +36,41 @@ export default function Versions() {
   const isAction = (id, action) => !!actionLoading[`${id}_${action}`]
 
   const handleDocx = async (v) => {
-    setAction(v._id, 'docx', true)
+    setAction(v.id, 'docx', true)
     try {
-      const { blob, filename } = await exportDocx(v._id)
+      const { blob, filename } = await exportDocx(v.id)
       downloadBlob(blob, filename)
-      setVersions((prev) => prev.map((r) => r._id === v._id ? { ...r, status: 'exported' } : r))
+      setVersions((prev) => prev.map((r) => r.id === v.id ? { ...r, status: 'exported' } : r))
     } catch (err) {
       alert(`Export failed: ${err.message}`)
     } finally {
-      setAction(v._id, 'docx', false)
+      setAction(v.id, 'docx', false)
     }
   }
 
   const handlePdf = async (v) => {
-    setAction(v._id, 'pdf', true)
+    setAction(v.id, 'pdf', true)
     try {
-      const { blob, filename } = await exportPdf(v._id)
+      const { blob, filename } = await exportPdf(v.id)
       downloadBlob(blob, filename)
-      setVersions((prev) => prev.map((r) => r._id === v._id ? { ...r, status: 'exported' } : r))
+      setVersions((prev) => prev.map((r) => r.id === v.id ? { ...r, status: 'exported' } : r))
     } catch (err) {
       alert(`Export failed: ${err.message}`)
     } finally {
-      setAction(v._id, 'pdf', false)
+      setAction(v.id, 'pdf', false)
     }
   }
 
   const handleDelete = async (v) => {
     if (!window.confirm(`Archive "${v.job_title} @ ${v.company}"? This is reversible.`)) return
-    setAction(v._id, 'del', true)
+    setAction(v.id, 'del', true)
     try {
-      await deleteResume(v._id)
-      setVersions((prev) => prev.filter((r) => r._id !== v._id))
+      await deleteResume(v.id)
+      setVersions((prev) => prev.filter((r) => r.id !== v.id))
     } catch (err) {
       alert(`Delete failed: ${err.message}`)
     } finally {
-      setAction(v._id, 'del', false)
+      setAction(v.id, 'del', false)
     }
   }
 
@@ -109,7 +109,7 @@ export default function Versions() {
               </thead>
               <tbody>
                 {versions.map((r) => (
-                  <tr key={r._id} style={v.tr}>
+                  <tr key={r.id} style={v.tr}>
                     <td style={v.td}>
                       <span style={v.roleText}>{r.job_title}</span>
                     </td>
@@ -127,7 +127,7 @@ export default function Versions() {
                     <td style={v.td}>{fmtDate(r.created_at)}</td>
                     <td style={v.td}>
                       <div style={v.actions}>
-                        <button style={v.actionBtn} onClick={() => navigate(`/tailor/${r._id}`)}>
+                        <button style={v.actionBtn} onClick={() => navigate(`/tailor/${r.id}`)}>
                           View
                         </button>
                         {(r.status === 'approved' || r.status === 'exported') && (
@@ -135,25 +135,25 @@ export default function Versions() {
                             <button
                               style={{ ...v.actionBtn, ...v.actionBtnBlue }}
                               onClick={() => handleDocx(r)}
-                              disabled={isAction(r._id, 'docx')}
+                              disabled={isAction(r.id, 'docx')}
                             >
-                              {isAction(r._id, 'docx') ? '…' : 'DOCX'}
+                              {isAction(r.id, 'docx') ? '…' : 'DOCX'}
                             </button>
                             <button
                               style={{ ...v.actionBtn, ...v.actionBtnDark }}
                               onClick={() => handlePdf(r)}
-                              disabled={isAction(r._id, 'pdf')}
+                              disabled={isAction(r.id, 'pdf')}
                             >
-                              {isAction(r._id, 'pdf') ? '…' : 'PDF'}
+                              {isAction(r.id, 'pdf') ? '…' : 'PDF'}
                             </button>
                           </>
                         )}
                         <button
                           style={{ ...v.actionBtn, ...v.actionBtnRed }}
                           onClick={() => handleDelete(r)}
-                          disabled={isAction(r._id, 'del')}
+                          disabled={isAction(r.id, 'del')}
                         >
-                          {isAction(r._id, 'del') ? '…' : 'Archive'}
+                          {isAction(r.id, 'del') ? '…' : 'Archive'}
                         </button>
                       </div>
                     </td>

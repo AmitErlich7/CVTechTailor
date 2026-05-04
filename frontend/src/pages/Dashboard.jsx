@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Nav from '../components/Nav.jsx'
-import { useAppUser } from '../services/appAuth.jsx'
 import { getTailorVersions } from '../services/api.js'
 import { useProfile } from '../hooks/useProfile.js'
 
@@ -13,7 +12,6 @@ const STATUS_COLORS = {
 }
 
 export default function Dashboard() {
-  const { user } = useAppUser()
   const navigate = useNavigate()
   const { profile, loading: profileLoading } = useProfile()
   const [versions, setVersions] = useState([])
@@ -34,9 +32,7 @@ export default function Dashboard() {
       <Nav />
       <main style={styles.main}>
         <div style={styles.greeting}>
-          <h1 style={styles.h1}>
-            Welcome back, {user?.firstName || 'there'}
-          </h1>
+          <h1 style={styles.h1}>Welcome to Resume Tailor</h1>
           <p style={styles.sub}>Here's your resume tailoring dashboard.</p>
         </div>
 
@@ -102,7 +98,7 @@ export default function Dashboard() {
           )}
 
           {versions.slice(0, 5).map((v) => (
-            <div key={v._id} style={styles.versionRow}>
+            <div key={v.id} style={styles.versionRow}>
               <div style={styles.versionInfo}>
                 <span style={styles.versionTitle}>{v.job_title}</span>
                 <span style={styles.versionCompany}> @ {v.company}</span>
@@ -113,7 +109,7 @@ export default function Dashboard() {
                 </span>
                 <span style={styles.score}>{v.match_score}% match</span>
                 <span style={styles.date}>{fmtDate(v.created_at)}</span>
-                <button style={styles.textBtn} onClick={() => navigate(`/tailor/${v._id}`)}>
+                <button style={styles.textBtn} onClick={() => navigate(`/tailor/${v.id}`)}>
                   View →
                 </button>
               </div>

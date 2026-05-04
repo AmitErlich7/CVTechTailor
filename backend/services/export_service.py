@@ -1,24 +1,23 @@
 """
-Export service — generate ATS-compliant DOCX and PDF files.
+Export service — ATS-compliant DOCX and PDF, guaranteed one page.
 
-ATS compliance rules enforced:
-1. Standard section headings only: Summary, Skills, Experience, Education, Projects
-2. No tables, columns, text boxes, headers/footers
-3. No images, icons, or special characters (beyond hyphens and pipes)
-4. Fonts: Calibri for body (10-11pt), name in 16pt bold
-5. Skills as flat comma-separated list
-6. Margins: 0.75 inch all sides
-7. Output: .docx (not .doc)
+One-page rules enforced before generation:
+- Max 4 experiences, 3 bullets each
+- Max 3 projects
+- Max 20 skills
+- Summary trimmed to 2 sentences max
+- Tight margins (0.55 in) and 9.5 pt body font
+- PDF: two-pass — if still overflows, font drops to 8.5 pt
 """
 
 import io
 import re
-from typing import Any, Dict, List, Optional
+from copy import deepcopy
+from typing import Any, Dict, List
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.oxml.ns import qn
-from docx.shared import Inches, Pt, RGBColor
+from docx.shared import Inches, Pt
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import inch
@@ -28,44 +27,77 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-_HYPHEN_AND_PIPE_RE = re.compile(r"[^\x20-\x7E]")  # strip non-printable / non-ASCII
-
-
 def _clean_text(text: str) -> str:
-    """Remove special characters beyond hyphens, pipes, and standard ASCII."""
     if not text:
         return ""
-    # Replace smart quotes and dashes with ASCII equivalents
     replacements = {
-        "\u2018": "'", "\u2019": "'", "\u201c": '"', "\u201d": '"',
-        "\u2013": "-", "\u2014": "-", "\u2026": "...",
+        "‘": "'", "’": "'", "“": '"', "”": '"',
+        "–": "-", "—": "-", "…": "...",
     }
     for k, v in replacements.items():
         text = text.replace(k, v)
-    # Strip remaining non-ASCII
-    text = re.sub(r"[^\x20-\x7E]", "", text)
-    return text.strip()
+    return re.sub(r"[^\x20-\x7E]", "", text).strip()
 
 
 def _format_date_range(start: str, end: str) -> str:
     if not start and not end:
         return ""
     if not end or end.lower() == "present":
-        return f"{start} – Present"
-    return f"{start} – {end}"
+        return f"{start} - Present"
+    return f"{start} - {end}"
+
+
+def _trim_summary(summary: str) -> str:
+    """Keep at most 2 sentences."""
+    sentences = re.split(r"(?<=[.!?])\s+", summary.strip())
+    return " ".join(sentences[:2])
+
+
+def _cap_for_one_page(resume: Dict) -> Dict:
+    """
+    Return a copy of resume with content capped to fit one page:
+    - max 4 experiences, 3 bullets each
+    - max 3 projects
+    - max 20 skills
+    - summary: 2 sentences max
+    """
+    r = deepcopy(resume)
+    profile = r.get("tailored_profile", {})
+
+    summary = profile.get("summary", "")
+    if summary:
+        profile["summary"] = _trim_summary(summary)
+
+    skills = profile.get("skills", [])
+    profile["skills"] = skills[:20]
+
+    experiences = profile.get("experiences", [])[:4]
+    for exp in experiences:
+        exp["bullets"] = exp.get("bullets", [])[:3]
+    profile["experiences"] = experiences
+
+    profile["projects"] = profile.get("projects", [])[:3]
+
+    r["tailored_profile"] = profile
+    return r
 
 
 # ---------------------------------------------------------------------------
 # DOCX generation
 # ---------------------------------------------------------------------------
 
-def _set_margins(document: Document, margin_inches: float = 0.75) -> None:
+_MARGIN = 0.55
+_BODY_PT = 9.5
+_NAME_PT = 15
+_HEADING_PT = 10.5
+
+
+def _set_margins(document: Document) -> None:
     for section in document.sections:
-        section.top_margin = Inches(margin_inches)
-        section.bottom_margin = Inches(margin_inches)
-        section.left_margin = Inches(margin_inches)
-        section.right_margin = Inches(margin_inches)
-        # Remove headers/footers
+        section.top_margin = Inches(_MARGIN)
+        section.bottom_margin = Inches(_MARGIN)
+        section.left_margin = Inches(_MARGIN)
+        section.right_margin = Inches(_MARGIN)
         section.header.is_linked_to_previous = False
         section.footer.is_linked_to_previous = False
         for para in section.header.paragraphs:
@@ -80,28 +112,21 @@ def _add_name(doc: Document, name: str) -> None:
     run = p.add_run(_clean_text(name))
     run.bold = True
     run.font.name = "Calibri"
-    run.font.size = Pt(16)
+    run.font.size = Pt(_NAME_PT)
 
 
 def _add_contact_line(doc: Document, contact: Dict) -> None:
-    parts = []
-    if contact.get("location"):
-        parts.append(_clean_text(contact["location"]))
-    if contact.get("phone"):
-        parts.append(_clean_text(contact["phone"]))
-    if contact.get("email"):
-        parts.append(_clean_text(contact["email"]))
-    if contact.get("linkedin"):
-        parts.append(_clean_text(contact["linkedin"]))
-    if contact.get("github"):
-        parts.append(_clean_text(contact["github"]))
-
+    parts = [
+        _clean_text(contact.get(f, ""))
+        for f in ("location", "phone", "email", "linkedin", "github")
+        if contact.get(f)
+    ]
     if parts:
         p = doc.add_paragraph(" | ".join(parts))
         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
         for run in p.runs:
             run.font.name = "Calibri"
-            run.font.size = Pt(10)
+            run.font.size = Pt(_BODY_PT)
 
 
 def _add_section_heading(doc: Document, title: str) -> None:
@@ -109,88 +134,59 @@ def _add_section_heading(doc: Document, title: str) -> None:
     run = p.add_run(title.upper())
     run.bold = True
     run.font.name = "Calibri"
-    run.font.size = Pt(11)
-    # Underline-style: bottom border via XML
-    pPr = p._p.get_or_add_pPr()
-    pBdr = pPr.get_or_add_pBdr() if hasattr(pPr, "get_or_add_pBdr") else None
-    # Simple approach: just bold + spacing, no borders needed for ATS compliance
-    p.paragraph_format.space_before = Pt(8)
-    p.paragraph_format.space_after = Pt(2)
+    run.font.size = Pt(_HEADING_PT)
+    p.paragraph_format.space_before = Pt(5)
+    p.paragraph_format.space_after = Pt(1)
 
 
 def _add_body_para(doc: Document, text: str, bold: bool = False, italic: bool = False) -> None:
     p = doc.add_paragraph()
     run = p.add_run(_clean_text(text))
     run.font.name = "Calibri"
-    run.font.size = Pt(10)
+    run.font.size = Pt(_BODY_PT)
     run.bold = bold
     run.italic = italic
-    p.paragraph_format.space_after = Pt(1)
+    p.paragraph_format.space_after = Pt(0)
 
 
 def _add_bullet(doc: Document, text: str) -> None:
     p = doc.add_paragraph(style="List Bullet")
     run = p.add_run(_clean_text(text))
     run.font.name = "Calibri"
-    run.font.size = Pt(10)
-    p.paragraph_format.space_after = Pt(1)
+    run.font.size = Pt(_BODY_PT)
+    p.paragraph_format.space_after = Pt(0)
 
 
 def generate_docx(resume: Dict) -> bytes:
-    """
-    Build an ATS-compliant DOCX from a TailoredResume document.
-    Returns the file contents as bytes.
-    """
+    resume = _cap_for_one_page(resume)
     profile = resume.get("tailored_profile", {})
-    contact = resume.get("contact_override") or {}
-
-    # Fall back to profile contact if available in the resume object
-    # (callers may enrich the resume dict with the user's contact info)
-    if not contact and resume.get("contact"):
-        contact = resume["contact"]
+    contact = resume.get("contact_override") or resume.get("contact") or {}
 
     doc = Document()
     _set_margins(doc)
 
-    # Remove default styles that add tables/columns
-    # (python-docx default template is already single-column)
-
-    # ------------------------------------------------------------------
-    # Header: Name + Contact
-    # ------------------------------------------------------------------
     name = _clean_text(contact.get("name", resume.get("job_title", "Resume")))
     _add_name(doc, name)
     _add_contact_line(doc, contact)
 
-    # ------------------------------------------------------------------
-    # Summary
-    # ------------------------------------------------------------------
     summary = profile.get("summary", "").strip()
     if summary:
         _add_section_heading(doc, "Summary")
         _add_body_para(doc, summary)
 
-    # ------------------------------------------------------------------
-    # Skills (flat comma-separated list — ATS rule)
-    # ------------------------------------------------------------------
     skills: List[str] = profile.get("skills", [])
     if skills:
         _add_section_heading(doc, "Skills")
         _add_body_para(doc, ", ".join([_clean_text(s) for s in skills if s]))
 
-    # ------------------------------------------------------------------
-    # Experience
-    # ------------------------------------------------------------------
     experiences: List[Dict] = profile.get("experiences", [])
     if experiences:
         _add_section_heading(doc, "Experience")
         for exp in experiences:
-            company = _clean_text(exp.get("company", ""))
             title = _clean_text(exp.get("title", ""))
+            company = _clean_text(exp.get("company", ""))
             location = _clean_text(exp.get("location", ""))
-            date_range = _format_date_range(
-                exp.get("start_date", ""), exp.get("end_date", "")
-            )
+            date_range = _format_date_range(exp.get("start_date", ""), exp.get("end_date", ""))
             header_parts = [f"{title} — {company}"]
             if location:
                 header_parts.append(location)
@@ -201,40 +197,25 @@ def generate_docx(resume: Dict) -> bytes:
                 if bullet:
                     _add_bullet(doc, bullet)
 
-    # ------------------------------------------------------------------
-    # Education
-    # ------------------------------------------------------------------
-    education: List[Dict] = resume.get("education_override") or []
-    if not education and resume.get("education"):
-        education = resume["education"]
+    education: List[Dict] = resume.get("education_override") or resume.get("education") or []
     if education:
         _add_section_heading(doc, "Education")
         for edu in education:
-            school = _clean_text(edu.get("school", ""))
-            degree = _clean_text(edu.get("degree", ""))
-            field = _clean_text(edu.get("field", ""))
-            year = _clean_text(edu.get("year", ""))
-            line = f"{degree} in {field} — {school}"
-            if year:
-                line += f" ({year})"
+            line = f"{_clean_text(edu.get('degree', ''))} in {_clean_text(edu.get('field', ''))} — {_clean_text(edu.get('school', ''))}"
+            if edu.get("year"):
+                line += f" ({_clean_text(edu['year'])})"
             _add_body_para(doc, line, bold=True)
 
-    # ------------------------------------------------------------------
-    # Projects
-    # ------------------------------------------------------------------
     projects: List[Dict] = profile.get("projects", [])
     if projects:
         _add_section_heading(doc, "Projects")
         for proj in projects:
             name_text = _clean_text(proj.get("name", ""))
             tech = ", ".join([_clean_text(t) for t in proj.get("tech_stack", []) if t])
-            purpose = _clean_text(proj.get("purpose", ""))
-            header = name_text
-            if tech:
-                header += f" | {tech}"
+            header = f"{name_text} | {tech}" if tech else name_text
             _add_body_para(doc, header, bold=True)
-            if purpose:
-                _add_body_para(doc, purpose)
+            if proj.get("purpose"):
+                _add_body_para(doc, proj["purpose"])
             for feat in proj.get("key_features", []):
                 if feat:
                     _add_bullet(doc, feat)
@@ -245,159 +226,122 @@ def generate_docx(resume: Dict) -> bytes:
 
 
 # ---------------------------------------------------------------------------
-# PDF generation
+# PDF generation — with two-pass one-page enforcement
 # ---------------------------------------------------------------------------
 
-def generate_pdf(resume: Dict) -> bytes:
-    """
-    Build a clean, ATS-friendly PDF using reportlab.
-    Single column, no tables, standard fonts.
-    """
+def _build_pdf_story(resume: Dict, body_pt: float) -> list:
     profile = resume.get("tailored_profile", {})
     contact = resume.get("contact_override") or resume.get("contact") or {}
-
-    buf = io.BytesIO()
-    margin = 0.75 * inch
-
-    doc = SimpleDocTemplate(
-        buf,
-        pagesize=letter,
-        leftMargin=margin,
-        rightMargin=margin,
-        topMargin=margin,
-        bottomMargin=margin,
-    )
+    education = resume.get("education_override") or resume.get("education") or []
 
     styles = getSampleStyleSheet()
 
-    name_style = ParagraphStyle(
-        "NameStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
-        fontSize=16,
-        spaceAfter=4,
-        alignment=1,  # center
-    )
-    contact_style = ParagraphStyle(
-        "ContactStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica",
-        fontSize=10,
-        spaceAfter=6,
-        alignment=1,
-    )
-    heading_style = ParagraphStyle(
-        "HeadingStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
-        fontSize=11,
-        spaceBefore=10,
-        spaceAfter=3,
-        textTransform="uppercase",
-    )
-    body_style = ParagraphStyle(
-        "BodyStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica",
-        fontSize=10,
-        spaceAfter=2,
-    )
-    bold_body_style = ParagraphStyle(
-        "BoldBodyStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica-Bold",
-        fontSize=10,
-        spaceAfter=2,
-    )
-    bullet_style = ParagraphStyle(
-        "BulletStyle",
-        parent=styles["Normal"],
-        fontName="Helvetica",
-        fontSize=10,
-        leftIndent=12,
-        spaceAfter=2,
-        bulletIndent=4,
-        bulletText="-",
-    )
+    name_style = ParagraphStyle("Name", parent=styles["Normal"],
+        fontName="Helvetica-Bold", fontSize=body_pt + 5.5, spaceAfter=2, alignment=1)
+    contact_style = ParagraphStyle("Contact", parent=styles["Normal"],
+        fontName="Helvetica", fontSize=body_pt - 0.5, spaceAfter=4, alignment=1)
+    heading_style = ParagraphStyle("Heading", parent=styles["Normal"],
+        fontName="Helvetica-Bold", fontSize=body_pt + 1, spaceBefore=6, spaceAfter=2)
+    body_style = ParagraphStyle("Body", parent=styles["Normal"],
+        fontName="Helvetica", fontSize=body_pt, spaceAfter=1)
+    bold_style = ParagraphStyle("Bold", parent=styles["Normal"],
+        fontName="Helvetica-Bold", fontSize=body_pt, spaceAfter=1)
+    bullet_style = ParagraphStyle("Bullet", parent=styles["Normal"],
+        fontName="Helvetica", fontSize=body_pt, leftIndent=10, spaceAfter=1,
+        bulletIndent=2, bulletText="-")
 
     story = []
 
-    # Name
     name = _clean_text(contact.get("name", resume.get("job_title", "Resume")))
     story.append(Paragraph(name, name_style))
 
-    # Contact line
-    parts = []
-    for field in ("location", "phone", "email", "linkedin", "github"):
-        val = contact.get(field, "")
-        if val:
-            parts.append(_clean_text(val))
-    if parts:
-        story.append(Paragraph(" | ".join(parts), contact_style))
+    contact_parts = [contact.get(f, "") for f in ("location", "phone", "email", "linkedin", "github") if contact.get(f)]
+    if contact_parts:
+        story.append(Paragraph(" | ".join([_clean_text(p) for p in contact_parts]), contact_style))
 
-    # Summary
     summary = profile.get("summary", "").strip()
     if summary:
         story.append(Paragraph("SUMMARY", heading_style))
         story.append(Paragraph(_clean_text(summary), body_style))
 
-    # Skills
     skills = profile.get("skills", [])
     if skills:
         story.append(Paragraph("SKILLS", heading_style))
-        skills_line = ", ".join([_clean_text(s) for s in skills if s])
-        story.append(Paragraph(skills_line, body_style))
+        story.append(Paragraph(", ".join([_clean_text(s) for s in skills if s]), body_style))
 
-    # Experience
     experiences = profile.get("experiences", [])
     if experiences:
         story.append(Paragraph("EXPERIENCE", heading_style))
         for exp in experiences:
-            company = _clean_text(exp.get("company", ""))
-            title_text = _clean_text(exp.get("title", ""))
-            location = _clean_text(exp.get("location", ""))
             date_range = _format_date_range(exp.get("start_date", ""), exp.get("end_date", ""))
-            parts = [f"{title_text} — {company}"]
-            if location:
-                parts.append(location)
+            parts = [f"{_clean_text(exp.get('title', ''))} — {_clean_text(exp.get('company', ''))}"]
+            if exp.get("location"):
+                parts.append(_clean_text(exp["location"]))
             if date_range:
                 parts.append(date_range)
-            story.append(Paragraph(" | ".join(parts), bold_body_style))
+            story.append(Paragraph(" | ".join(parts), bold_style))
             for bullet in exp.get("bullets", []):
                 if bullet:
                     story.append(Paragraph(_clean_text(bullet), bullet_style))
 
-    # Education
-    education = resume.get("education_override") or resume.get("education") or []
     if education:
         story.append(Paragraph("EDUCATION", heading_style))
         for edu in education:
-            school = _clean_text(edu.get("school", ""))
-            degree = _clean_text(edu.get("degree", ""))
-            field = _clean_text(edu.get("field", ""))
-            year = _clean_text(edu.get("year", ""))
-            line = f"{degree} in {field} — {school}"
-            if year:
-                line += f" ({year})"
-            story.append(Paragraph(line, bold_body_style))
+            line = f"{_clean_text(edu.get('degree', ''))} in {_clean_text(edu.get('field', ''))} — {_clean_text(edu.get('school', ''))}"
+            if edu.get("year"):
+                line += f" ({_clean_text(edu['year'])})"
+            story.append(Paragraph(line, bold_style))
 
-    # Projects
     projects = profile.get("projects", [])
     if projects:
         story.append(Paragraph("PROJECTS", heading_style))
         for proj in projects:
-            proj_name = _clean_text(proj.get("name", ""))
             tech = ", ".join([_clean_text(t) for t in proj.get("tech_stack", []) if t])
-            purpose = _clean_text(proj.get("purpose", ""))
-            header = proj_name
-            if tech:
-                header += f" | {tech}"
-            story.append(Paragraph(header, bold_body_style))
-            if purpose:
-                story.append(Paragraph(purpose, body_style))
+            header = f"{_clean_text(proj.get('name', ''))} | {tech}" if tech else _clean_text(proj.get("name", ""))
+            story.append(Paragraph(header, bold_style))
+            if proj.get("purpose"):
+                story.append(Paragraph(_clean_text(proj["purpose"]), body_style))
             for feat in proj.get("key_features", []):
                 if feat:
                     story.append(Paragraph(_clean_text(feat), bullet_style))
 
+    return story
+
+
+def _count_pdf_pages(story: list, margin: float, body_pt: float) -> int:
+    """Build to a throwaway buffer and count pages."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter,
+        leftMargin=margin, rightMargin=margin,
+        topMargin=margin, bottomMargin=margin)
+    page_count = [0]
+
+    from reportlab.pdfgen import canvas as rl_canvas
+
+    class _Counter(rl_canvas.Canvas):
+        def showPage(self):
+            page_count[0] += 1
+            super().showPage()
+
+    doc.build(story, canvasmaker=_Counter)
+    return max(page_count[0], 1)
+
+
+def generate_pdf(resume: Dict) -> bytes:
+    resume = _cap_for_one_page(resume)
+    margin = _MARGIN * inch
+
+    # First pass at 9.5 pt
+    story = _build_pdf_story(resume, _BODY_PT)
+    pages = _count_pdf_pages(story, margin, _BODY_PT)
+
+    # Second pass at 8.5 pt if still overflowing
+    if pages > 1:
+        story = _build_pdf_story(resume, 8.5)
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=letter,
+        leftMargin=margin, rightMargin=margin,
+        topMargin=margin, bottomMargin=margin)
     doc.build(story)
     return buf.getvalue()

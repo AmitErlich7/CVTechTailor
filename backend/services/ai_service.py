@@ -337,6 +337,148 @@ async def analyze_github_repo(context: str, repo_url: str) -> Tuple[Any, Optiona
 
 
 # ---------------------------------------------------------------------------
+# ATS Scorer
+# ---------------------------------------------------------------------------
+
+def _resume_to_text(resume: Dict) -> str:
+    """Convert stored resume data to plain text — mirrors what an ATS parser sees."""
+    profile = resume.get("tailored_profile", {})
+    contact = resume.get("contact", {})
+    education = resume.get("education", [])
+    lines: List[str] = []
+
+    name = contact.get("name", "")
+    if name:
+        lines.append(name)
+    contact_parts = [contact.get(f, "") for f in ("location", "phone", "email", "linkedin", "github") if contact.get(f)]
+    if contact_parts:
+        lines.append(" | ".join(contact_parts))
+    lines.append("")
+
+    summary = profile.get("summary", "").strip()
+    if summary:
+        lines += ["SUMMARY", summary, ""]
+
+    skills = profile.get("skills", [])
+    if skills:
+        lines += ["SKILLS", ", ".join(skills), ""]
+
+    experiences = profile.get("experiences", [])
+    if experiences:
+        lines.append("EXPERIENCE")
+        for exp in experiences:
+            date = f"{exp.get('start_date', '')} - {exp.get('end_date', '')}"
+            lines.append(f"{exp.get('title', '')} - {exp.get('company', '')} ({date})")
+            for b in exp.get("bullets", []):
+                if b:
+                    lines.append(f"- {b}")
+        lines.append("")
+
+    if education:
+        lines.append("EDUCATION")
+        for edu in education:
+            lines.append(
+                f"{edu.get('degree', '')} in {edu.get('field', '')} - {edu.get('school', '')} ({edu.get('year', '')})"
+            )
+        lines.append("")
+
+    projects = profile.get("projects", [])
+    if projects:
+        lines.append("PROJECTS")
+        for proj in projects:
+            tech = ", ".join(proj.get("tech_stack", []))
+            lines.append(f"{proj.get('name', '')} | {tech}")
+            if proj.get("purpose"):
+                lines.append(proj["purpose"])
+            for feat in proj.get("key_features", []):
+                if feat:
+                    lines.append(f"- {feat}")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
+async def ats_score_resume(resume: Dict) -> Dict:
+    """
+    Score a tailored resume from 1-100 for ATS compatibility.
+    Also uses the stored JD analysis for keyword matching if available.
+    Returns score, breakdown, strengths, issues, recommendations.
+    """
+    client = _get_client()
+
+    resume_text = _resume_to_text(resume)
+    jd_analysis = resume.get("jd_analysis", {})
+    jd_context = ""
+    if jd_analysis:
+        required = jd_analysis.get("required_skills", [])
+        tech = jd_analysis.get("tech_stack", [])
+        if required or tech:
+            jd_context = (
+                f"\n\nTarget job required skills: {', '.join(required)}\n"
+                f"Target tech stack: {', '.join(tech)}"
+            )
+
+    message = client.messages.create(
+        model=_MODEL,
+        max_tokens=1500,
+        system=[
+            {
+                "type": "text",
+                "text": (
+                    "You are an ATS (Applicant Tracking System) expert. "
+                    "Score resumes strictly for machine parseability and keyword matching. "
+                    "Return JSON only, no markdown, no preamble."
+                ),
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
+        messages=[
+            {
+                "role": "user",
+                "content": (
+                    f"Score this resume for ATS compatibility (1-100).{jd_context}\n\n"
+                    "Scoring breakdown (max points per category):\n"
+                    "- keywords: 25 — keyword density vs target JD, relevant skills present\n"
+                    "- formatting: 20 — standard headings, no special chars, machine-parseable\n"
+                    "- structure: 20 — all key sections present (contact, summary, skills, experience, education), logical order\n"
+                    "- content_quality: 20 — action verbs, quantified achievements, concise bullets\n"
+                    "- contact: 15 — name, email, phone, LinkedIn all present\n\n"
+                    "Return JSON with exactly these fields:\n"
+                    "{\n"
+                    '  "score": <integer 1-100>,\n'
+                    '  "breakdown": {"keywords": <0-25>, "formatting": <0-20>, "structure": <0-20>, "content_quality": <0-20>, "contact": <0-15>},\n'
+                    '  "strengths": [<up to 3 specific strengths as strings>],\n'
+                    '  "issues": [<up to 5 specific issues as strings>],\n'
+                    '  "recommendations": [<up to 4 actionable improvements as strings>]\n'
+                    "}\n\n"
+                    f"Resume:\n{resume_text}"
+                ),
+            }
+        ],
+    )
+
+    raw = message.content[0].text
+    parsed, error = _parse_json_response(raw, "ATS score")
+    if error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": "ATS scoring output could not be parsed", "raw": raw, "error": error},
+        )
+
+    try:
+        parsed["score"] = max(1, min(100, int(parsed["score"])))
+    except (TypeError, ValueError):
+        parsed["score"] = 50
+
+    parsed.setdefault("breakdown", {})
+    parsed.setdefault("strengths", [])
+    parsed.setdefault("issues", [])
+    parsed.setdefault("recommendations", [])
+
+    return parsed
+
+
+# ---------------------------------------------------------------------------
 # Safeguard: ensure every tailored bullet has a source_map entry
 # ---------------------------------------------------------------------------
 

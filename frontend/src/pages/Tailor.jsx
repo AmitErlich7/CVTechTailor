@@ -14,7 +14,7 @@ import GapReport from '../components/GapReport.jsx'
 import JDInput from '../components/JDInput.jsx'
 import Nav from '../components/Nav.jsx'
 import ResumeDiff from '../components/ResumeDiff.jsx'
-import { approveResume, getTailorResume, tailorResume } from '../services/api.js'
+import { approveResume, atsScoreResume, getTailorResume, tailorResume } from '../services/api.js'
 import { useProfile } from '../hooks/useProfile.js'
 
 const AI_STEPS = [
@@ -38,6 +38,10 @@ export default function Tailor() {
   const [approveError, setApproveError] = useState(null)
   const [hasScrolled, setHasScrolled] = useState(false)
   const diffRef = useRef(null)
+
+  // ATS score state
+  const [atsScoring, setAtsScoring] = useState(false)
+  const [atsError, setAtsError] = useState(null)
 
   // Load existing resume by ID
   useEffect(() => {
@@ -112,12 +116,25 @@ export default function Tailor() {
     setApproving(true)
     setApproveError(null)
     try {
-      const updated = await approveResume(resume._id, true)
+      const updated = await approveResume(resume.id, true)
       setResume(updated)
     } catch (err) {
       setApproveError(err.message)
     } finally {
       setApproving(false)
+    }
+  }
+
+  const handleAtsScore = async () => {
+    setAtsScoring(true)
+    setAtsError(null)
+    try {
+      const result = await atsScoreResume(resume.id)
+      setResume(result.resume)
+    } catch (err) {
+      setAtsError(err.message)
+    } finally {
+      setAtsScoring(false)
     }
   }
 
@@ -229,7 +246,15 @@ export default function Tailor() {
               </div>
             )}
 
-            <ExportBar resumeId={resume._id} status={resume.status} />
+            {/* ATS Score panel */}
+            <AtsScorePanel
+              atsScore={resume.ats_score}
+              loading={atsScoring}
+              error={atsError}
+              onScore={handleAtsScore}
+            />
+
+            <ExportBar resumeId={resume.id} status={resume.status} />
 
             {/* Tailor another */}
             {!resumeIdParam && (
@@ -244,6 +269,109 @@ export default function Tailor() {
       </main>
     </div>
   )
+}
+
+function AtsScorePanel({ atsScore, loading, error, onScore }) {
+  const score = atsScore?.score
+  const breakdown = atsScore?.breakdown || {}
+  const breakdownDefs = [
+    { key: 'keywords', label: 'Keywords', max: 25 },
+    { key: 'formatting', label: 'Formatting', max: 20 },
+    { key: 'structure', label: 'Structure', max: 20 },
+    { key: 'content_quality', label: 'Content Quality', max: 20 },
+    { key: 'contact', label: 'Contact Info', max: 15 },
+  ]
+
+  return (
+    <div style={t.atsPanel}>
+      <div style={t.atsPanelHeader}>
+        <div>
+          <div style={t.atsPanelTitle}>ATS Compatibility Score</div>
+          <div style={t.atsPanelSub}>AI agent scans your CV like an ATS system would</div>
+        </div>
+        <button
+          style={{ ...t.atsBtn, opacity: loading ? 0.6 : 1 }}
+          onClick={onScore}
+          disabled={loading}
+        >
+          {loading ? 'Scoring…' : score != null ? '↻ Re-score' : 'Score my CV'}
+        </button>
+      </div>
+
+      {error && <div style={t.atsError}>{error}</div>}
+
+      {score != null && (
+        <div style={t.atsBody}>
+          {/* Big score */}
+          <div style={t.atsBigScore}>
+            <div style={{ ...t.atsBigNum, color: atsColor(score) }}>{score}</div>
+            <div style={t.atsBigLabel}>/ 100</div>
+            <div style={{ ...t.atsBigGrade, color: atsColor(score) }}>{atsGrade(score)}</div>
+          </div>
+
+          {/* Breakdown bars */}
+          <div style={t.atsBreakdown}>
+            {breakdownDefs.map(({ key, label, max }) => {
+              const val = breakdown[key] ?? 0
+              const pct = Math.round((val / max) * 100)
+              return (
+                <div key={key} style={t.atsBarRow}>
+                  <div style={t.atsBarLabel}>{label}</div>
+                  <div style={t.atsBarTrack}>
+                    <div style={{ ...t.atsBarFill, width: `${pct}%`, background: atsColor(pct) }} />
+                  </div>
+                  <div style={t.atsBarScore}>{val}/{max}</div>
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Strengths */}
+          {atsScore.strengths?.length > 0 && (
+            <div style={t.atsSection}>
+              <div style={t.atsSectionTitle}>Strengths</div>
+              {atsScore.strengths.map((s, i) => (
+                <div key={i} style={t.atsItem}>✓ {s}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Issues */}
+          {atsScore.issues?.length > 0 && (
+            <div style={t.atsSection}>
+              <div style={t.atsSectionTitle}>Issues</div>
+              {atsScore.issues.map((s, i) => (
+                <div key={i} style={{ ...t.atsItem, color: '#dc2626' }}>✗ {s}</div>
+              ))}
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {atsScore.recommendations?.length > 0 && (
+            <div style={t.atsSection}>
+              <div style={t.atsSectionTitle}>Recommendations</div>
+              {atsScore.recommendations.map((s, i) => (
+                <div key={i} style={{ ...t.atsItem, color: '#2563eb' }}>→ {s}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function atsColor(score) {
+  if (score >= 75) return '#16a34a'
+  if (score >= 50) return '#d97706'
+  return '#dc2626'
+}
+
+function atsGrade(score) {
+  if (score >= 90) return 'Excellent'
+  if (score >= 75) return 'Good'
+  if (score >= 50) return 'Fair'
+  return 'Needs Work'
 }
 
 function statusStyle(status) {
@@ -390,4 +518,48 @@ const t = {
     color: '#64748b',
     cursor: 'pointer',
   },
+  atsPanel: {
+    background: '#fff',
+    border: '1px solid #e2e8f0',
+    borderRadius: '12px',
+    padding: '20px 24px',
+    marginTop: '24px',
+  },
+  atsPanelHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: '16px',
+  },
+  atsPanelTitle: { fontWeight: '700', fontSize: '15px', color: '#1e293b' },
+  atsPanelSub: { fontSize: '12px', color: '#94a3b8', marginTop: '2px' },
+  atsBtn: {
+    background: '#2563eb',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '8px',
+    padding: '8px 18px',
+    fontSize: '13px',
+    fontWeight: '600',
+    cursor: 'pointer',
+  },
+  atsError: { color: '#dc2626', fontSize: '13px', marginBottom: '12px' },
+  atsBody: { display: 'flex', flexDirection: 'column', gap: '20px' },
+  atsBigScore: {
+    display: 'flex',
+    alignItems: 'baseline',
+    gap: '6px',
+  },
+  atsBigNum: { fontSize: '48px', fontWeight: '800', lineHeight: 1 },
+  atsBigLabel: { fontSize: '20px', color: '#94a3b8', fontWeight: '600' },
+  atsBigGrade: { fontSize: '16px', fontWeight: '700', marginLeft: '8px' },
+  atsBreakdown: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  atsBarRow: { display: 'flex', alignItems: 'center', gap: '10px' },
+  atsBarLabel: { fontSize: '12px', fontWeight: '600', color: '#64748b', width: '110px', flexShrink: 0 },
+  atsBarTrack: { flex: 1, height: '6px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' },
+  atsBarFill: { height: '100%', borderRadius: '3px', transition: 'width 0.5s ease' },
+  atsBarScore: { fontSize: '11px', color: '#94a3b8', width: '36px', textAlign: 'right', flexShrink: 0 },
+  atsSection: {},
+  atsSectionTitle: { fontSize: '12px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '6px' },
+  atsItem: { fontSize: '13px', color: '#374151', marginBottom: '4px', lineHeight: '1.5' },
 }

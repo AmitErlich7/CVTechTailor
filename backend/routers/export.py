@@ -3,42 +3,29 @@ Export router
 
 POST /export/{id}/docx  — generate and return an ATS-compliant DOCX
 POST /export/{id}/pdf   — generate and return a PDF
-
-Both endpoints:
-1. Re-verify ownership of the TailoredResume
-2. Reject if status != "approved"
-3. Enrich the resume with the user's contact and education (not tailored, taken from profile)
-4. Generate and stream the file
-5. Update resume status to "exported"
 """
 
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import Response
 
-from middleware.auth_middleware import get_current_user
-from services.export_service import generate_docx, generate_pdf
-from services.mongo_service import (
+from services.db_service import (
+    LOCAL_USER_ID,
     get_profile,
     get_tailored_resume,
     update_tailored_resume_status,
 )
+from services.export_service import generate_docx, generate_pdf
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-async def _load_approved_resume(resume_id: str, user_id: str) -> dict:
-    """
-    Shared guard: fetch the resume, verify ownership, verify approved status.
-    Enriches the resume dict with contact info and education from the user's profile.
-    """
-    resume = await get_tailored_resume(resume_id, user_id)
+async def _load_approved_resume(resume_id: str) -> dict:
+    resume = await get_tailored_resume(resume_id, LOCAL_USER_ID)
     if not resume:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Resume not found")
-
-    # Ownership is already enforced by get_tailored_resume (filters by user_id)
 
     if resume.get("status") not in ("approved", "exported"):
         raise HTTPException(
@@ -49,8 +36,7 @@ async def _load_approved_resume(resume_id: str, user_id: str) -> dict:
             ),
         )
 
-    # Enrich with contact + education from profile (not tailored sections)
-    profile = await get_profile(user_id)
+    profile = await get_profile(LOCAL_USER_ID)
     if profile:
         resume["contact"] = profile.get("contact", {})
         resume["education"] = profile.get("education", [])
@@ -59,12 +45,12 @@ async def _load_approved_resume(resume_id: str, user_id: str) -> dict:
 
 
 @router.post("/{resume_id}/docx")
-async def export_docx(resume_id: str, user_id: str = Depends(get_current_user)):
-    resume = await _load_approved_resume(resume_id, user_id)
+async def export_docx(resume_id: str):
+    resume = await _load_approved_resume(resume_id)
 
     try:
         file_bytes = generate_docx(resume)
-    except Exception as exc:
+    except Exception:
         logger.exception("DOCX generation failed for resume %s", resume_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -75,7 +61,7 @@ async def export_docx(resume_id: str, user_id: str = Depends(get_current_user)):
     role = resume.get("job_title", "role").replace(" ", "_").lower()
     filename = f"{role}_{company}_resume.docx"
 
-    await update_tailored_resume_status(resume_id, user_id, "exported")
+    await update_tailored_resume_status(resume_id, LOCAL_USER_ID, "exported")
 
     return Response(
         content=file_bytes,
@@ -85,12 +71,12 @@ async def export_docx(resume_id: str, user_id: str = Depends(get_current_user)):
 
 
 @router.post("/{resume_id}/pdf")
-async def export_pdf(resume_id: str, user_id: str = Depends(get_current_user)):
-    resume = await _load_approved_resume(resume_id, user_id)
+async def export_pdf(resume_id: str):
+    resume = await _load_approved_resume(resume_id)
 
     try:
         file_bytes = generate_pdf(resume)
-    except Exception as exc:
+    except Exception:
         logger.exception("PDF generation failed for resume %s", resume_id)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -101,7 +87,7 @@ async def export_pdf(resume_id: str, user_id: str = Depends(get_current_user)):
     role = resume.get("job_title", "role").replace(" ", "_").lower()
     filename = f"{role}_{company}_resume.pdf"
 
-    await update_tailored_resume_status(resume_id, user_id, "exported")
+    await update_tailored_resume_status(resume_id, LOCAL_USER_ID, "exported")
 
     return Response(
         content=file_bytes,

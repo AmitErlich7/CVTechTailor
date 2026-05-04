@@ -1,41 +1,14 @@
 /**
- * API service layer.
- *
- * All requests attach the Clerk JWT as a Bearer token.
- * All errors are surfaced as thrown Error objects with a human-readable message.
+ * API service layer — local mode, no authentication.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
-/**
- * Get the current Clerk session token.
- * This must be called after Clerk has loaded — import useAuth() in components
- * and pass the getToken function down, or use the global window.__clerkGetToken
- * set in main.jsx via ClerkProvider's tokenCache.
- *
- * We use a module-level setter so api.js stays framework-agnostic.
- */
-let _getToken = null
-
-export function setTokenProvider(fn) {
-  _getToken = fn
-}
-
-async function _authHeaders() {
-  if (!_getToken) {
-    throw new Error('Auth token provider not set. Call setTokenProvider() first.')
-  }
-  const token = await _getToken()
-  if (!token) throw new Error('Not authenticated')
-  return {
-    Authorization: `Bearer ${token}`,
-    'Content-Type': 'application/json',
-  }
-}
-
 async function request(method, path, body) {
-  const headers = await _authHeaders()
-  const options = { method, headers }
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+  }
   if (body !== undefined) {
     options.body = JSON.stringify(body)
   }
@@ -64,20 +37,12 @@ async function request(method, path, body) {
 }
 
 // -------------------------------------------------------------------------
-// Public (no auth)
+// Health
 // -------------------------------------------------------------------------
 
 export async function healthCheck() {
   const res = await fetch(`${BASE_URL}/health`)
   return res.json()
-}
-
-// -------------------------------------------------------------------------
-// Auth
-// -------------------------------------------------------------------------
-
-export async function syncUser(userData) {
-  return request('POST', '/auth/sync', userData)
 }
 
 // -------------------------------------------------------------------------
@@ -134,15 +99,18 @@ export async function deleteResume(id) {
   return request('DELETE', `/tailor/${id}`)
 }
 
+export async function atsScoreResume(id) {
+  return request('POST', `/tailor/${id}/ats-score`)
+}
+
 // -------------------------------------------------------------------------
 // Export (returns Blob)
 // -------------------------------------------------------------------------
 
 export async function exportDocx(id) {
-  const headers = await _authHeaders()
   const response = await fetch(`${BASE_URL}/export/${id}/docx`, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
   })
   if (!response.ok) {
     let detail = `HTTP ${response.status}`
@@ -162,10 +130,9 @@ export async function exportDocx(id) {
 }
 
 export async function exportPdf(id) {
-  const headers = await _authHeaders()
   const response = await fetch(`${BASE_URL}/export/${id}/pdf`, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
   })
   if (!response.ok) {
     let detail = `HTTP ${response.status}`

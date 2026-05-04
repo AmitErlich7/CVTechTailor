@@ -6,8 +6,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from routers import auth, export, github, profile, tailor
-from services.mongo_service import close_mongo, connect_mongo
+from routers import export, github, profile, tailor
+from services.db_service import init_db
 
 load_dotenv()
 
@@ -17,14 +17,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Never log sensitive values — keys, tokens, PII are scrubbed at source.
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await connect_mongo()
+    await init_db()
     yield
-    await close_mongo()
 
 
 app = FastAPI(
@@ -34,23 +31,14 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS
+# CORS — local only
 # ---------------------------------------------------------------------------
-environment = os.getenv("ENVIRONMENT", "development")
-frontend_url = os.getenv("FRONTEND_URL", "http://localhost:5173")
-
-if environment == "production":
-    allowed_origins = [frontend_url]
-else:
-    allowed_origins = [
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        frontend_url,
-    ]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,7 +47,6 @@ app.add_middleware(
 # ---------------------------------------------------------------------------
 # Routers
 # ---------------------------------------------------------------------------
-app.include_router(auth.router, prefix="/auth", tags=["auth"])
 app.include_router(profile.router, prefix="/profile", tags=["profile"])
 app.include_router(github.router, prefix="/github", tags=["github"])
 app.include_router(tailor.router, prefix="/tailor", tags=["tailor"])

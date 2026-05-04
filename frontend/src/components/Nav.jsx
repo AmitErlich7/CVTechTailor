@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router-dom'
-import { AppUserButton, useAppUser } from '../services/appAuth.jsx'
 
 const NAV_LINKS = [
   { path: '/dashboard', label: 'Dashboard' },
@@ -11,7 +10,6 @@ const NAV_LINKS = [
 
 export default function Nav() {
   const { pathname } = useLocation()
-  const { user } = useAppUser()
 
   return (
     <nav style={styles.nav}>
@@ -36,9 +34,7 @@ export default function Nav() {
           ))}
         </div>
 
-        <div style={styles.user}>
-          <AppUserButton afterSignOutUrl="/login" />
-        </div>
+        <div style={styles.localBadge}>Local Mode</div>
       </div>
     </nav>
   )
@@ -102,7 +98,13 @@ const styles = {
     background: '#eff6ff',
     color: '#2563eb',
   },
-  user: {
+  localBadge: {
     marginLeft: 'auto',
+    padding: '4px 10px',
+    background: '#f1f5f9',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: '600',
+    color: '#64748b',
   },
 }

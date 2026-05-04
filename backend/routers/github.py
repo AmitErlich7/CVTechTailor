@@ -9,15 +9,14 @@ import logging
 import uuid
 
 import bleach
-from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import BaseModel, validator
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel
 
-from middleware.auth_middleware import get_current_user
 from middleware.rate_limiter import github_rate_limit
-from models.project import GitHubProjectRaw, Project
+from models.project import Project
 from services.ai_service import analyze_github_repo
+from services.db_service import LOCAL_USER_ID, add_project_to_profile
 from services.github_service import build_repo_context, fetch_repo_data
-from services.mongo_service import add_project_to_profile
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -31,21 +30,15 @@ class ImportRequest(BaseModel):
 
 
 class ConfirmRequest(BaseModel):
-    project: dict  # The project card as returned by /github/import
+    project: dict
 
 
 @router.post("/import")
-async def import_github_repo(
-    body: ImportRequest,
-    user_id: str = Depends(github_rate_limit),
-):
-    """
-    Analyze a GitHub repository and return a project card for review.
-    The card is NOT persisted — the user must call /github/confirm.
-    """
+async def import_github_repo(body: ImportRequest):
+    github_rate_limit()
+
     repo_url = bleach.clean(body.repo_url, tags=[], strip=True).strip()
 
-    # Fetch raw repo data (may raise 404 / 429 / 400)
     repo_data = await fetch_repo_data(repo_url)
     context = build_repo_context(repo_data)
 
@@ -55,7 +48,6 @@ async def import_github_repo(
             detail="Repository appears empty — no README, dependency file, or description found.",
         )
 
-    # Ask Claude to extract project metadata
     raw_result, validation_error = await analyze_github_repo(context, repo_url)
 
     if validation_error:
@@ -68,31 +60,19 @@ async def import_github_repo(
             },
         )
 
-    # raw_result at this point is a validated GitHubProjectRaw dict
-    return {
-        "project_card": raw_result,
-        "repo_url": repo_url,
-    }
+    return {"project_card": raw_result, "repo_url": repo_url}
 
 
 @router.post("/confirm", status_code=status.HTTP_201_CREATED)
-async def confirm_github_project(
-    body: ConfirmRequest,
-    user_id: str = Depends(get_current_user),
-):
-    """
-    Save a reviewed project card into the user's profile.
-    """
+async def confirm_github_project(body: ConfirmRequest):
     card = body.project
 
-    # Validate the final card as a full Project
     card.setdefault("id", str(uuid.uuid4()))
     card.setdefault("source", "github")
     card.setdefault("repo_url", card.get("repo_url", ""))
     card.setdefault("tech_stack", [])
     card.setdefault("key_features", [])
 
-    # Coerce scale and your_role to valid values
     scale = card.get("scale", "personal")
     if scale not in _VALID_SCALES:
         card["scale"] = "personal"
@@ -110,5 +90,5 @@ async def confirm_github_project(
         )
 
     project_dict = project.model_dump()
-    profile = await add_project_to_profile(user_id, project_dict)
+    profile = await add_project_to_profile(LOCAL_USER_ID, project_dict)
     return {"profile": profile, "project": project_dict}
