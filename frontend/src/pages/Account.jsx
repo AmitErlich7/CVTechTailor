@@ -1,53 +1,72 @@
 import Nav from '../components/Nav.jsx'
 
+const INFO_ROWS = [
+  { label: 'Mode',     value: 'Local (single user)' },
+  { label: 'Database', value: 'SQLite (resume_tailor.db)' },
+  { label: 'Auth',     value: 'None' },
+]
+
 export default function Account() {
   return (
-    <div style={styles.page}>
+    <div className="app-shell">
       <Nav />
-      <main style={styles.main}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>Account Settings</h1>
-          <p style={styles.subtitle}>Running in local mode — no authentication required.</p>
-        </div>
+      <main className="page-main">
+        <div style={{ maxWidth: '560px', margin: '0 auto' }}>
 
-        <div style={styles.card}>
-          <div style={styles.row}>
-            <span style={styles.label}>Mode</span>
-            <span style={styles.value}>Local (single user)</span>
+          <header style={s.header}>
+            <h1 style={s.h1}>Account</h1>
+            <p style={s.sub}>Running in local mode — no authentication required.</p>
+          </header>
+
+          <div style={s.card}>
+            <div style={s.cardTitle}>System info</div>
+            {INFO_ROWS.map(({ label, value }) => (
+              <div key={label} style={s.row}>
+                <span style={s.rowLabel}>{label}</span>
+                <span style={s.rowValue}>{value}</span>
+              </div>
+            ))}
           </div>
-          <div style={styles.row}>
-            <span style={styles.label}>Database</span>
-            <span style={styles.value}>SQLite (resume_tailor.db)</span>
-          </div>
-          <div style={styles.row}>
-            <span style={styles.label}>Auth</span>
-            <span style={styles.value}>None</span>
-          </div>
+
         </div>
       </main>
     </div>
   )
 }
 
-const styles = {
-  page: { minHeight: '100vh', background: '#f8fafc' },
-  main: { maxWidth: '600px', margin: '0 auto', padding: '32px 24px' },
-  header: { marginBottom: '24px' },
-  title: { margin: '0 0 6px', fontSize: '28px', fontWeight: '700', color: '#0f172a' },
-  subtitle: { margin: 0, fontSize: '15px', color: '#64748b' },
+const s = {
+  header: { marginBottom: 'var(--space-8)' },
+  h1: {
+    fontFamily: 'var(--font-heading)',
+    fontSize: '26px',
+    fontWeight: 700,
+    color: 'var(--color-text)',
+    letterSpacing: '-0.02em',
+    marginBottom: 'var(--space-1)',
+  },
+  sub: { fontSize: '14px', color: 'var(--color-text-3)' },
   card: {
-    background: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '24px',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--space-5)',
+  },
+  cardTitle: {
+    fontSize: '12px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    color: 'var(--color-text-3)',
+    marginBottom: 'var(--space-4)',
   },
   row: {
     display: 'flex',
     justifyContent: 'space-between',
-    padding: '12px 0',
-    borderBottom: '1px solid #f1f5f9',
+    alignItems: 'center',
+    padding: 'var(--space-3) 0',
+    borderBottom: '1px solid var(--color-border-subtle)',
     fontSize: '14px',
   },
-  label: { fontWeight: '600', color: '#475569' },
-  value: { color: '#64748b' },
+  rowLabel: { fontWeight: 500, color: 'var(--color-text-2)' },
+  rowValue: { color: 'var(--color-text-3)' },
 }

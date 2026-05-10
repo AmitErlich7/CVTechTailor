@@ -1,5 +1,4 @@
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
-import Account from './pages/Account.jsx'
 import Dashboard from './pages/Dashboard.jsx'
 import Profile from './pages/Profile.jsx'
 import Tailor from './pages/Tailor.jsx'
@@ -11,7 +10,6 @@ export default function App() {
       <Routes>
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/account" element={<Account />} />
         <Route path="/tailor" element={<Tailor />} />
         <Route path="/tailor/:id" element={<Tailor />} />
         <Route path="/versions" element={<Versions />} />

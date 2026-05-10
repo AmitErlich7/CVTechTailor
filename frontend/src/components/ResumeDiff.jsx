@@ -1,14 +1,3 @@
-/**
- * ResumeDiff — split view showing original profile vs tailored resume.
- *
- * Highlight rules:
- *  - unchanged   → no highlight
- *  - reworded    → yellow background
- *  - flagged     → red background + warning icon
- *
- * Each bullet is cross-referenced with source_map to determine its state.
- */
-
 function getTransformation(text, sourceMap, flaggedClaims) {
   if (!text) return 'unchanged'
   const trimmed = text.trim()
@@ -19,20 +8,14 @@ function getTransformation(text, sourceMap, flaggedClaims) {
 }
 
 function TextSpan({ text, transformation }) {
-  const styles = {
-    unchanged: {},
-    reworded: { background: '#fef9c3', borderRadius: '3px', padding: '0 2px' },
-    reordered: { background: '#e0f2fe', borderRadius: '3px', padding: '0 2px' },
-    flagged: {
-      background: '#fee2e2',
-      borderRadius: '3px',
-      padding: '0 2px',
-      borderBottom: '2px solid #dc2626',
-    },
+  const highlight = {
+    reworded:  { background: 'oklch(97% 0.08 85)',  borderRadius: '3px', padding: '0 2px' },
+    reordered: { background: 'var(--color-info-bg)', borderRadius: '3px', padding: '0 2px' },
+    flagged:   { background: 'var(--color-error-bg)', borderRadius: '3px', padding: '0 2px', outline: '1px solid oklch(88% 0.08 22)' },
   }
   return (
-    <span style={styles[transformation] || {}}>
-      {transformation === 'flagged' && <span title="Flagged: not traceable to original profile">⚠️ </span>}
+    <span style={highlight[transformation] || {}}>
+      {transformation === 'flagged' && <span title="Flagged: not traceable to original profile" aria-label="Flagged claim">⚠ </span>}
       {text}
     </span>
   )
@@ -43,25 +26,25 @@ function SectionHeading({ children }) {
 }
 
 function BulletItem({ text, transformation }) {
+  const bulletStyles = {
+    reworded: { background: 'oklch(97% 0.08 85)', borderRadius: '3px' },
+    flagged:  { background: 'var(--color-error-bg)', borderRadius: '3px' },
+  }
   return (
-    <li style={{ ...sd.bullet, ...(transformation === 'flagged' ? sd.bulletFlagged : transformation === 'reworded' ? sd.bulletReworded : {}) }}>
+    <li style={{ ...sd.bullet, ...(bulletStyles[transformation] || {}) }}>
       <TextSpan text={text} transformation={transformation} />
     </li>
   )
 }
-
-// ---------------------------------------------------------------------------
-// Original profile panel
-// ---------------------------------------------------------------------------
 
 function OriginalPanel({ profile }) {
   const contact = profile.contact || {}
   return (
     <div style={sd.panel}>
       <div style={sd.panelHeader}>
-        <span style={sd.panelLabel}>Original Profile</span>
+        <span style={sd.panelLabel}>Original profile</span>
       </div>
-      <div style={sd.panelBody}>
+      <div style={sd.panelBody} data-scroll>
         {contact.name && <div style={sd.name}>{contact.name}</div>}
 
         {profile.summary && (
@@ -84,7 +67,7 @@ function OriginalPanel({ profile }) {
             {profile.experiences.map((exp, i) => (
               <div key={exp.id || i} style={sd.expBlock}>
                 <div style={sd.expTitle}>{exp.title} — {exp.company}</div>
-                <div style={sd.expMeta}>{exp.start_date} – {exp.end_date} {exp.location ? `· ${exp.location}` : ''}</div>
+                <div style={sd.expMeta}>{exp.start_date} – {exp.end_date}{exp.location ? ` · ${exp.location}` : ''}</div>
                 <ul style={sd.bulletList}>
                   {exp.bullets.map((b, j) => <li key={j} style={sd.bullet}>{b}</li>)}
                 </ul>
@@ -109,30 +92,29 @@ function OriginalPanel({ profile }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Tailored profile panel
-// ---------------------------------------------------------------------------
-
 function TailoredPanel({ tailored, sourceMap, flaggedClaims }) {
   const sm = sourceMap || []
   const fc = flaggedClaims || []
-
   const summaryT = getTransformation(tailored.summary, sm, fc)
 
   return (
     <div style={sd.panel}>
-      <div style={{ ...sd.panelHeader, background: '#eff6ff' }}>
-        <span style={{ ...sd.panelLabel, color: '#2563eb' }}>Tailored Resume</span>
+      <div style={{ ...sd.panelHeader, background: 'var(--color-accent-subtle)' }}>
+        <span style={{ ...sd.panelLabel, color: 'var(--color-accent-text)' }}>Tailored resume</span>
         {fc.length > 0 && (
-          <span style={sd.flagBadge}>⚠️ {fc.length} flagged claim{fc.length > 1 ? 's' : ''}</span>
+          <span style={sd.flagBadge}>⚠ {fc.length} flagged claim{fc.length > 1 ? 's' : ''}</span>
         )}
       </div>
-      <div style={sd.panelBody}>
+      <div style={sd.panelBody} data-scroll>
         {tailored.summary && (
           <>
             <SectionHeading>Summary</SectionHeading>
-            <p style={{ ...sd.para, ...(summaryT === 'reworded' ? { background: '#fef9c3', borderRadius: '4px', padding: '4px' } : summaryT === 'flagged' ? { background: '#fee2e2', borderRadius: '4px', padding: '4px', borderLeft: '3px solid #dc2626' } : {}) }}>
-              {summaryT === 'flagged' && <span>⚠️ </span>}
+            <p style={{
+              ...sd.para,
+              ...(summaryT === 'reworded' ? { background: 'oklch(97% 0.08 85)', borderRadius: '4px', padding: '4px' } : {}),
+              ...(summaryT === 'flagged'  ? { background: 'var(--color-error-bg)', borderRadius: '4px', padding: '4px', outline: '1px solid oklch(88% 0.08 22)' } : {}),
+            }}>
+              {summaryT === 'flagged' && <span>⚠ </span>}
               {tailored.summary}
             </p>
           </>
@@ -151,7 +133,7 @@ function TailoredPanel({ tailored, sourceMap, flaggedClaims }) {
             {tailored.experiences.map((exp, i) => (
               <div key={exp.id || i} style={sd.expBlock}>
                 <div style={sd.expTitle}>{exp.title} — {exp.company}</div>
-                <div style={sd.expMeta}>{exp.start_date} – {exp.end_date} {exp.location ? `· ${exp.location}` : ''}</div>
+                <div style={sd.expMeta}>{exp.start_date} – {exp.end_date}{exp.location ? ` · ${exp.location}` : ''}</div>
                 <ul style={sd.bulletList}>
                   {exp.bullets.map((b, j) => {
                     const t = getTransformation(b, sm, fc)
@@ -171,9 +153,7 @@ function TailoredPanel({ tailored, sourceMap, flaggedClaims }) {
               return (
                 <div key={proj.id || i} style={sd.expBlock}>
                   <div style={sd.expTitle}>{proj.name}</div>
-                  <p style={sd.para}>
-                    <TextSpan text={proj.purpose} transformation={t} />
-                  </p>
+                  <p style={sd.para}><TextSpan text={proj.purpose} transformation={t} /></p>
                 </div>
               )
             })}
@@ -184,28 +164,27 @@ function TailoredPanel({ tailored, sourceMap, flaggedClaims }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Legend
-// ---------------------------------------------------------------------------
-
 function Legend() {
+  const items = [
+    { sample: { background: 'none' }, label: 'Unchanged' },
+    { sample: { background: 'oklch(97% 0.08 85)' }, label: 'Reworded' },
+    { sample: { background: 'var(--color-info-bg)' }, label: 'Reordered' },
+    { sample: { background: 'var(--color-error-bg)', outline: '1px solid oklch(88% 0.08 22)' }, label: 'Flagged' },
+  ]
   return (
     <div style={sd.legend}>
-      <span style={sd.legendItem}><span style={{ background: 'none', padding: '2px 6px', borderRadius: '3px', fontSize: '12px' }}>No highlight</span> Unchanged</span>
-      <span style={sd.legendItem}><span style={{ background: '#fef9c3', padding: '2px 6px', borderRadius: '3px', fontSize: '12px' }}>Yellow</span> Reworded</span>
-      <span style={sd.legendItem}><span style={{ background: '#e0f2fe', padding: '2px 6px', borderRadius: '3px', fontSize: '12px' }}>Blue</span> Reordered</span>
-      <span style={sd.legendItem}><span style={{ background: '#fee2e2', padding: '2px 6px', borderRadius: '3px', fontSize: '12px', borderBottom: '2px solid #dc2626' }}>⚠️ Red</span> Flagged claim</span>
+      {items.map(({ sample, label }) => (
+        <span key={label} style={sd.legendItem}>
+          <span style={{ ...sd.legendSwatch, ...sample }}>{label === 'Flagged' ? '⚠' : ''}</span>
+          <span>{label}</span>
+        </span>
+      ))}
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Main export
-// ---------------------------------------------------------------------------
-
 export default function ResumeDiff({ resume, originalProfile }) {
   if (!resume) return null
-
   return (
     <div>
       <Legend />
@@ -225,43 +204,83 @@ const sd = {
   splitView: {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr',
-    gap: '16px',
-    marginTop: '16px',
+    gap: 'var(--space-4)',
+    marginTop: 'var(--space-4)',
   },
   panel: {
-    border: '1px solid #e2e8f0',
-    borderRadius: '10px',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-lg)',
     overflow: 'hidden',
-    background: '#fff',
+    background: 'var(--color-surface)',
   },
   panelHeader: {
-    background: '#f8fafc',
-    padding: '12px 16px',
-    borderBottom: '1px solid #e2e8f0',
+    background: 'var(--color-surface-raised)',
+    padding: 'var(--space-3) var(--space-4)',
+    borderBottom: '1px solid var(--color-border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  panelLabel: { fontWeight: '700', fontSize: '13px', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  flagBadge: { fontSize: '12px', fontWeight: '600', color: '#dc2626', background: '#fee2e2', padding: '2px 8px', borderRadius: '999px' },
-  panelBody: { padding: '20px', fontSize: '13px', lineHeight: '1.6', color: '#1e293b', maxHeight: '70vh', overflowY: 'auto' },
-  name: { fontSize: '18px', fontWeight: '700', marginBottom: '16px' },
-  sectionHeading: { fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', color: '#475569', margin: '16px 0 6px', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' },
-  para: { margin: '0 0 8px', fontSize: '13px', lineHeight: '1.6' },
-  expBlock: { marginBottom: '14px' },
-  expTitle: { fontWeight: '600', fontSize: '13px', color: '#1e293b' },
-  expMeta: { fontSize: '12px', color: '#64748b', marginBottom: '4px' },
-  bulletList: { paddingLeft: '18px', margin: '4px 0' },
-  bullet: { marginBottom: '4px', fontSize: '13px' },
-  bulletReworded: { background: '#fef9c3', borderRadius: '3px' },
-  bulletFlagged: { background: '#fee2e2', borderRadius: '3px' },
+  panelLabel: {
+    fontWeight: 700,
+    fontSize: '11px',
+    color: 'var(--color-text-3)',
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+  },
+  flagBadge: {
+    fontSize: '11px',
+    fontWeight: 600,
+    color: 'var(--color-error)',
+    background: 'var(--color-error-bg)',
+    padding: '2px 8px',
+    borderRadius: 'var(--radius-full)',
+  },
+  panelBody: {
+    padding: 'var(--space-5)',
+    fontSize: '13px',
+    lineHeight: '1.65',
+    color: 'var(--color-text)',
+    maxHeight: '70vh',
+    overflowY: 'auto',
+  },
+  name: { fontSize: '17px', fontWeight: 700, marginBottom: 'var(--space-4)', color: 'var(--color-text)' },
+  sectionHeading: {
+    fontSize: '10.5px',
+    fontWeight: 700,
+    textTransform: 'uppercase',
+    letterSpacing: '0.08em',
+    color: 'var(--color-text-3)',
+    margin: 'var(--space-4) 0 var(--space-2)',
+    borderBottom: '1px solid var(--color-border-subtle)',
+    paddingBottom: 'var(--space-1)',
+  },
+  para: { margin: '0 0 var(--space-2)', fontSize: '13px', lineHeight: '1.65' },
+  expBlock: { marginBottom: 'var(--space-4)' },
+  expTitle: { fontWeight: 600, fontSize: '13px', color: 'var(--color-text)', marginBottom: '2px' },
+  expMeta: { fontSize: '12px', color: 'var(--color-text-3)', marginBottom: 'var(--space-1)' },
+  bulletList: { paddingLeft: 'var(--space-5)', margin: 'var(--space-1) 0' },
+  bullet: { marginBottom: 'var(--space-1)', fontSize: '13px' },
   legend: {
     display: 'flex',
-    gap: '20px',
+    gap: 'var(--space-5)',
     alignItems: 'center',
-    padding: '10px 0',
-    marginBottom: '4px',
+    padding: 'var(--space-2) 0',
+    marginBottom: 'var(--space-2)',
     flexWrap: 'wrap',
   },
-  legendItem: { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b' },
+  legendItem: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 'var(--space-2)',
+    fontSize: '12px',
+    color: 'var(--color-text-3)',
+  },
+  legendSwatch: {
+    display: 'inline-block',
+    padding: '1px 7px',
+    borderRadius: '3px',
+    fontSize: '11px',
+    border: '1px solid var(--color-border-subtle)',
+  },
 }

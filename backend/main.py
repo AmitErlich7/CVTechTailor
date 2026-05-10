@@ -1,4 +1,4 @@
-import logging
+﻿import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -31,7 +31,7 @@ app = FastAPI(
 )
 
 # ---------------------------------------------------------------------------
-# CORS — local only
+# CORS â€” local only
 # ---------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -56,3 +56,4 @@ app.include_router(export.router, prefix="/export", tags=["export"])
 @app.get("/health", tags=["health"])
 async def health_check():
     return {"status": "ok"}
+

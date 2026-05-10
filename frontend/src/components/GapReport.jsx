@@ -1,12 +1,3 @@
-/**
- * GapReport — displays the skill gap analysis from the AI fact-check step.
- *
- * Shows every JD keyword with:
- *  - whether it was found in the profile
- *  - a concrete suggestion for addressing the gap
- *
- * A non-negotiable disclaimer reminds the user only to add genuine skills.
- */
 export default function GapReport({ gapReport, matchScore }) {
   if (!gapReport || gapReport.length === 0) return null
 
@@ -17,31 +8,28 @@ export default function GapReport({ gapReport, matchScore }) {
     <div style={g.container}>
       <div style={g.header}>
         <div>
-          <h3 style={g.title}>Skill Gap Report</h3>
+          <h3 style={g.title}>Skill gap report</h3>
           <p style={g.subtitle}>
             {gaps.length === 0
               ? 'Your profile covers all keywords in this job description.'
-              : `${gaps.length} keyword${gaps.length > 1 ? 's' : ''} in the JD ${gaps.length > 1 ? 'are' : 'is'} not present in your profile.`}
+              : `${gaps.length} keyword${gaps.length > 1 ? 's' : ''} in the JD ${gaps.length > 1 ? 'are' : 'is'} not in your profile.`}
           </p>
         </div>
         <div style={g.scoreWrap}>
-          <div style={{ ...g.score, background: scoreColor(matchScore).bg, color: scoreColor(matchScore).text }}>
+          <div style={{ ...g.scoreBubble, background: scoreColor(matchScore).bg, color: scoreColor(matchScore).text }}>
             {matchScore}%
           </div>
-          <div style={g.scoreLabel}>Match Score</div>
+          <div style={g.scoreLabel}>match</div>
         </div>
       </div>
 
-      {/* Disclaimer */}
       <div style={g.disclaimer}>
-        ⚠️ <strong>Important:</strong> Only add skills to your profile if you genuinely have
-        experience with them. Adding skills you do not have is dishonest and may backfire in interviews.
+        <strong>Only add skills you genuinely have.</strong> Adding skills you lack is dishonest and backfires in interviews.
       </div>
 
-      {/* Missing skills */}
       {gaps.length > 0 && (
         <div style={g.section}>
-          <div style={g.sectionLabel}>Missing from Your Profile</div>
+          <div style={g.sectionLabel}>Missing from your profile</div>
           {gaps.map((item, i) => (
             <div key={i} style={g.row}>
               <div style={g.rowLeft}>
@@ -54,10 +42,9 @@ export default function GapReport({ gapReport, matchScore }) {
         </div>
       )}
 
-      {/* Matched skills */}
       {matches.length > 0 && (
         <div style={g.section}>
-          <div style={g.sectionLabel}>Found in Your Profile</div>
+          <div style={g.sectionLabel}>Found in your profile</div>
           <div style={g.matchRow}>
             {matches.map((item, i) => (
               <span key={i} style={g.matchBadge}>{item.keyword}</span>
@@ -70,83 +57,98 @@ export default function GapReport({ gapReport, matchScore }) {
 }
 
 function scoreColor(score) {
-  if (score >= 75) return { bg: '#dcfce7', text: '#166534' }
-  if (score >= 50) return { bg: '#fef9c3', text: '#854d0e' }
-  return { bg: '#fee2e2', text: '#991b1b' }
+  if (score >= 75) return { bg: 'var(--color-success-bg)', text: 'var(--color-success)' }
+  if (score >= 50) return { bg: 'var(--color-warning-bg)', text: 'var(--color-warning)' }
+  return { bg: 'var(--color-error-bg)', text: 'var(--color-error)' }
 }
 
 const g = {
   container: {
-    background: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '24px',
-    marginTop: '24px',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--space-6)',
+    marginTop: 'var(--space-6)',
   },
   header: {
     display: 'flex',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: '16px',
+    marginBottom: 'var(--space-4)',
+    gap: 'var(--space-4)',
   },
-  title: { fontSize: '17px', fontWeight: '700', color: '#1e293b', marginBottom: '4px' },
-  subtitle: { fontSize: '14px', color: '#64748b' },
-  scoreWrap: { textAlign: 'center' },
-  score: {
-    width: '56px',
-    height: '56px',
+  title: {
+    fontFamily: 'var(--font-heading)',
+    fontSize: '16px',
+    fontWeight: 700,
+    color: 'var(--color-text)',
+    letterSpacing: '-0.01em',
+    marginBottom: 'var(--space-1)',
+  },
+  subtitle: { fontSize: '13.5px', color: 'var(--color-text-3)' },
+  scoreWrap: { textAlign: 'center', flexShrink: 0 },
+  scoreBubble: {
+    width: '54px',
+    height: '54px',
     borderRadius: '50%',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    fontSize: '16px',
-    fontWeight: '700',
-    margin: '0 auto 4px',
+    fontSize: '15px',
+    fontWeight: 700,
+    margin: '0 auto var(--space-1)',
+    fontVariantNumeric: 'tabular-nums',
   },
-  scoreLabel: { fontSize: '11px', color: '#64748b', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  scoreLabel: {
+    fontSize: '11px',
+    color: 'var(--color-text-3)',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+  },
   disclaimer: {
-    background: '#fffbeb',
-    border: '1px solid #fde68a',
-    borderRadius: '8px',
-    padding: '12px 16px',
+    background: 'var(--color-warning-bg)',
+    border: '1px solid oklch(85% 0.08 70)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-3) var(--space-4)',
     fontSize: '13px',
-    color: '#78350f',
-    marginBottom: '20px',
-    lineHeight: '1.5',
+    color: 'oklch(38% 0.12 68)',
+    marginBottom: 'var(--space-5)',
+    lineHeight: '1.55',
   },
-  section: { marginBottom: '20px' },
+  section: { marginBottom: 'var(--space-5)' },
   sectionLabel: {
     fontSize: '11px',
-    fontWeight: '700',
+    fontWeight: 600,
     textTransform: 'uppercase',
-    letterSpacing: '0.05em',
-    color: '#94a3b8',
-    marginBottom: '10px',
+    letterSpacing: '0.07em',
+    color: 'var(--color-text-3)',
+    marginBottom: 'var(--space-3)',
   },
   row: {
     display: 'flex',
     alignItems: 'flex-start',
-    gap: '12px',
-    padding: '10px 0',
-    borderBottom: '1px solid #f1f5f9',
+    gap: 'var(--space-3)',
+    padding: 'var(--space-3) 0',
+    borderBottom: '1px solid var(--color-border-subtle)',
   },
-  rowLeft: { display: 'flex', alignItems: 'center', gap: '8px', minWidth: '160px' },
+  rowLeft: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', minWidth: '160px', flexShrink: 0 },
   missingDot: {
-    width: '8px',
-    height: '8px',
+    width: '7px',
+    height: '7px',
     borderRadius: '50%',
-    background: '#f87171',
+    background: 'var(--color-error)',
     flexShrink: 0,
   },
-  keyword: { fontWeight: '600', fontSize: '14px', color: '#1e293b' },
-  suggestion: { fontSize: '13px', color: '#64748b', lineHeight: '1.5', flex: 1 },
-  matchRow: { display: 'flex', flexWrap: 'wrap', gap: '8px' },
+  keyword: { fontWeight: 600, fontSize: '13.5px', color: 'var(--color-text)' },
+  suggestion: { fontSize: '13px', color: 'var(--color-text-3)', lineHeight: '1.5', flex: 1 },
+  matchRow: { display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)' },
   matchBadge: {
-    background: '#dcfce7',
-    color: '#166534',
-    borderRadius: '999px',
+    background: 'var(--color-success-bg)',
+    color: 'var(--color-success)',
+    borderRadius: 'var(--radius-full)',
     padding: '3px 10px',
     fontSize: '12px',
-    fontWeight: '600',
+    fontWeight: 600,
   },
 }

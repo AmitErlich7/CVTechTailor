@@ -33,6 +33,16 @@ class Education(BaseModel):
     year: str
 
 
+class Volunteering(BaseModel):
+    id: str
+    organization: str
+    role: str
+    location: str = ""
+    start_date: str = ""
+    end_date: str = ""
+    bullets: List[str] = []
+
+
 class ProfileDocument(BaseModel):
     user_id: str  # firebase_uid
     contact: ContactInfo = ContactInfo()
@@ -41,6 +51,7 @@ class ProfileDocument(BaseModel):
     experiences: List[Experience] = []
     education: List[Education] = []
     projects: List[Project] = []
+    volunteering: List[Volunteering] = []
     updated_at: datetime
 
 
@@ -51,6 +62,7 @@ class ProfileCreate(BaseModel):
     experiences: Optional[List[Experience]] = None
     education: Optional[List[Education]] = None
     projects: Optional[List[Project]] = None
+    volunteering: Optional[List[Volunteering]] = None
 
 
 # Section-level patch models
@@ -76,6 +88,10 @@ class EducationPatch(BaseModel):
 
 class ProjectsPatch(BaseModel):
     projects: List[Project]
+
+
+class VolunteeringPatch(BaseModel):
+    volunteering: List[Volunteering]
 
 
 # ---------------------------------------------------------------------------

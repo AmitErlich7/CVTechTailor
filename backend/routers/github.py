@@ -1,8 +1,8 @@
-"""
+﻿"""
 GitHub router
 
-POST /github/import   — analyze a repo, return project card (NOT saved yet)
-POST /github/confirm  — save the confirmed project card to the user's profile
+POST /github/import   â€” analyze a repo, return project card (NOT saved yet)
+POST /github/confirm  â€” save the confirmed project card to the user's profile
 """
 
 import logging
@@ -16,7 +16,7 @@ from middleware.rate_limiter import github_rate_limit
 from models.project import Project
 from services.ai_service import analyze_github_repo
 from services.db_service import LOCAL_USER_ID, add_project_to_profile
-from services.github_service import build_repo_context, fetch_repo_data
+from services.github_service import build_repo_context, fetch_repo_data, fetch_user_repos
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -33,6 +33,20 @@ class ConfirmRequest(BaseModel):
     project: dict
 
 
+class FetchProfileRequest(BaseModel):
+    username: str
+
+
+@router.post("/fetch-profile")
+async def fetch_github_profile(body: FetchProfileRequest):
+    github_rate_limit()
+    username = bleach.clean(body.username, tags=[], strip=True).strip()
+    if not username:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Username is required.")
+    repos = await fetch_user_repos(username)
+    return {"repos": repos, "username": username}
+
+
 @router.post("/import")
 async def import_github_repo(body: ImportRequest):
     github_rate_limit()
@@ -45,7 +59,7 @@ async def import_github_repo(body: ImportRequest):
     if not context.strip():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Repository appears empty — no README, dependency file, or description found.",
+            detail="Repository appears empty â€” no README, dependency file, or description found.",
         )
 
     raw_result, validation_error = await analyze_github_repo(context, repo_url)
@@ -92,3 +106,4 @@ async def confirm_github_project(body: ConfirmRequest):
     project_dict = project.model_dump()
     profile = await add_project_to_profile(LOCAL_USER_ID, project_dict)
     return {"profile": profile, "project": project_dict}
+ 

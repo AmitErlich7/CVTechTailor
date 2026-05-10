@@ -1,13 +1,7 @@
-/**
- * ProfileForm — multi-section profile editor.
- * Each section is saved independently via PATCH /profile/{section}.
- */
 import { useState } from 'react'
 import { patchSection } from '../services/api.js'
 
-// ---------------------------------------------------------------------------
-// Shared UI primitives
-// ---------------------------------------------------------------------------
+/* ── Shared primitives ─────────────────────────────────────────────────── */
 
 function Field({ label, value, onChange, type = 'text', placeholder }) {
   return (
@@ -50,7 +44,7 @@ function SectionHeader({ title, onSave, saving, saved, error, sectionId }) {
           type="button"
           onClick={onSave}
           disabled={saving}
-          style={f.saveBtn}
+          style={{ ...f.saveBtn, opacity: saving ? 0.6 : 1 }}
           data-testid={`${sectionId}-save`}
         >
           {saving ? 'Saving…' : 'Save'}
@@ -83,18 +77,15 @@ function useSectionSave(section, getData) {
   return { save, saving, saved, error }
 }
 
-// ---------------------------------------------------------------------------
-// Contact section
-// ---------------------------------------------------------------------------
+/* ── Contact ───────────────────────────────────────────────────────────── */
 
 export function ContactSection({ data, onChange }) {
   const { save, saving, saved, error } = useSectionSave('contact', () => data)
-
   return (
     <div style={f.section} data-testid="section-contact">
-      <SectionHeader title="Contact Information" onSave={save} saving={saving} saved={saved} error={error} sectionId="contact" />
+      <SectionHeader title="Contact information" onSave={save} saving={saving} saved={saved} error={error} sectionId="contact" />
       <div style={f.grid2}>
-        <Field label="Full Name" value={data.name} onChange={(v) => onChange({ ...data, name: v })} placeholder="Jane Doe" />
+        <Field label="Full name" value={data.name} onChange={(v) => onChange({ ...data, name: v })} placeholder="Jane Doe" />
         <Field label="Email" value={data.email} onChange={(v) => onChange({ ...data, email: v })} type="email" placeholder="jane@example.com" />
         <Field label="Phone" value={data.phone} onChange={(v) => onChange({ ...data, phone: v })} placeholder="+1 555 000 0000" />
         <Field label="Location" value={data.location} onChange={(v) => onChange({ ...data, location: v })} placeholder="San Francisco, CA" />
@@ -105,16 +96,13 @@ export function ContactSection({ data, onChange }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Summary section
-// ---------------------------------------------------------------------------
+/* ── Summary ───────────────────────────────────────────────────────────── */
 
 export function SummarySection({ data, onChange }) {
   const { save, saving, saved, error } = useSectionSave('summary', () => data)
-
   return (
     <div style={f.section} data-testid="section-summary">
-      <SectionHeader title="Professional Summary" onSave={save} saving={saving} saved={saved} error={error} sectionId="summary" />
+      <SectionHeader title="Professional summary" onSave={save} saving={saving} saved={saved} error={error} sectionId="summary" />
       <TextareaField
         label="Summary"
         value={data}
@@ -126,9 +114,7 @@ export function SummarySection({ data, onChange }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Skills section
-// ---------------------------------------------------------------------------
+/* ── Skills ────────────────────────────────────────────────────────────── */
 
 export function SkillsSection({ data, onChange }) {
   const { save, saving, saved, error } = useSectionSave('skills', () => data)
@@ -136,9 +122,7 @@ export function SkillsSection({ data, onChange }) {
 
   const addSkill = () => {
     const trimmed = input.trim()
-    if (trimmed && !data.includes(trimmed)) {
-      onChange([...data, trimmed])
-    }
+    if (trimmed && !data.includes(trimmed)) onChange([...data, trimmed])
     setInput('')
   }
 
@@ -151,7 +135,7 @@ export function SkillsSection({ data, onChange }) {
         {data.map((skill) => (
           <span key={skill} style={f.tag}>
             {skill}
-            <button onClick={() => removeSkill(skill)} style={f.tagRemove}>×</button>
+            <button onClick={() => removeSkill(skill)} style={f.tagRemove} aria-label={`Remove ${skill}`}>×</button>
           </span>
         ))}
       </div>
@@ -169,24 +153,17 @@ export function SkillsSection({ data, onChange }) {
   )
 }
 
-// ---------------------------------------------------------------------------
-// Experience section
-// ---------------------------------------------------------------------------
+/* ── Experience ────────────────────────────────────────────────────────── */
 
 export function ExperienceSection({ data, onChange }) {
   const { save, saving, saved, error } = useSectionSave('experiences', () => data)
 
-  const addExp = () => {
-    onChange([...data, {
-      id: crypto.randomUUID(),
-      company: '', title: '', location: '',
-      start_date: '', end_date: '', bullets: [],
-    }])
-  }
-
+  const addExp = () => onChange([...data, {
+    id: crypto.randomUUID(),
+    company: '', title: '', location: '', start_date: '', end_date: '', bullets: [],
+  }])
   const updateExp = (id, patch) => onChange(data.map((e) => e.id === id ? { ...e, ...patch } : e))
   const removeExp = (id) => onChange(data.filter((e) => e.id !== id))
-
   const addBullet = (id) => updateExp(id, { bullets: [...(data.find((e) => e.id === id)?.bullets || []), ''] })
   const updateBullet = (id, idx, val) => {
     const exp = data.find((e) => e.id === id)
@@ -201,22 +178,22 @@ export function ExperienceSection({ data, onChange }) {
 
   return (
     <div style={f.section} data-testid="section-experiences">
-      <SectionHeader title="Work Experience" onSave={save} saving={saving} saved={saved} error={error} sectionId="experiences" />
+      <SectionHeader title="Work experience" onSave={save} saving={saving} saved={saved} error={error} sectionId="experiences" />
       {data.map((exp) => (
-        <div key={exp.id} style={f.expCard}>
-          <div style={f.expCardHeader}>
-            <span style={f.expTitle}>{exp.title || 'New Role'}{exp.company ? ` @ ${exp.company}` : ''}</span>
+        <div key={exp.id} style={f.card}>
+          <div style={f.cardHead}>
+            <span style={f.cardTitle}>{exp.title || 'New role'}{exp.company ? ` — ${exp.company}` : ''}</span>
             <button onClick={() => removeExp(exp.id)} style={f.removeBtn}>Remove</button>
           </div>
           <div style={f.grid2}>
-            <Field label="Job Title" value={exp.title} onChange={(v) => updateExp(exp.id, { title: v })} placeholder="Software Engineer" />
+            <Field label="Job title" value={exp.title} onChange={(v) => updateExp(exp.id, { title: v })} placeholder="Software Engineer" />
             <Field label="Company" value={exp.company} onChange={(v) => updateExp(exp.id, { company: v })} placeholder="Acme Corp" />
             <Field label="Location" value={exp.location} onChange={(v) => updateExp(exp.id, { location: v })} placeholder="Remote" />
             <div />
-            <Field label="Start Date" value={exp.start_date} onChange={(v) => updateExp(exp.id, { start_date: v })} placeholder="Jan 2022" />
-            <Field label="End Date" value={exp.end_date} onChange={(v) => updateExp(exp.id, { end_date: v })} placeholder="Present" />
+            <Field label="Start date" value={exp.start_date} onChange={(v) => updateExp(exp.id, { start_date: v })} placeholder="Jan 2022" />
+            <Field label="End date" value={exp.end_date} onChange={(v) => updateExp(exp.id, { end_date: v })} placeholder="Present" />
           </div>
-          <div style={f.bulletsLabel}>Bullet Points</div>
+          <div style={f.subsectionLabel}>Bullet points</div>
           {exp.bullets.map((b, i) => (
             <div key={i} style={f.bulletRow}>
               <input
@@ -225,20 +202,18 @@ export function ExperienceSection({ data, onChange }) {
                 style={{ ...f.input, flex: 1 }}
                 placeholder="Describe an achievement or responsibility…"
               />
-              <button onClick={() => removeBullet(exp.id, i)} style={f.removeBtn}>×</button>
+              <button onClick={() => removeBullet(exp.id, i)} style={f.iconBtn} aria-label="Remove bullet">×</button>
             </div>
           ))}
-          <button onClick={() => addBullet(exp.id)} style={f.ghostBtn}>+ Add Bullet</button>
+          <button onClick={() => addBullet(exp.id)} style={f.ghostBtn}>+ Add bullet</button>
         </div>
       ))}
-      <button onClick={addExp} style={f.ghostBtn}>+ Add Experience</button>
+      <button onClick={addExp} style={f.ghostBtn}>+ Add experience</button>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Education section
-// ---------------------------------------------------------------------------
+/* ── Education ─────────────────────────────────────────────────────────── */
 
 export function EducationSection({ data, onChange }) {
   const { save, saving, saved, error } = useSectionSave('education', () => data)
@@ -251,27 +226,85 @@ export function EducationSection({ data, onChange }) {
     <div style={f.section} data-testid="section-education">
       <SectionHeader title="Education" onSave={save} saving={saving} saved={saved} error={error} sectionId="education" />
       {data.map((edu) => (
-        <div key={edu.id} style={f.expCard}>
-          <div style={f.expCardHeader}>
-            <span style={f.expTitle}>{edu.degree || 'New Degree'}{edu.school ? ` — ${edu.school}` : ''}</span>
+        <div key={edu.id} style={f.card}>
+          <div style={f.cardHead}>
+            <span style={f.cardTitle}>{edu.degree || 'New degree'}{edu.school ? ` — ${edu.school}` : ''}</span>
             <button onClick={() => removeEdu(edu.id)} style={f.removeBtn}>Remove</button>
           </div>
           <div style={f.grid2}>
             <Field label="School / University" value={edu.school} onChange={(v) => updateEdu(edu.id, { school: v })} placeholder="MIT" />
             <Field label="Degree" value={edu.degree} onChange={(v) => updateEdu(edu.id, { degree: v })} placeholder="Bachelor of Science" />
-            <Field label="Field of Study" value={edu.field} onChange={(v) => updateEdu(edu.id, { field: v })} placeholder="Computer Science" />
-            <Field label="Graduation Year" value={edu.year} onChange={(v) => updateEdu(edu.id, { year: v })} placeholder="2020" />
+            <Field label="Field of study" value={edu.field} onChange={(v) => updateEdu(edu.id, { field: v })} placeholder="Computer Science" />
+            <Field label="Graduation year" value={edu.year} onChange={(v) => updateEdu(edu.id, { year: v })} placeholder="2024" />
           </div>
         </div>
       ))}
-      <button onClick={addEdu} style={f.ghostBtn}>+ Add Education</button>
+      <button onClick={addEdu} style={f.ghostBtn}>+ Add education</button>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Projects section (manual entries; GitHub imports handled by GitHubImport)
-// ---------------------------------------------------------------------------
+/* ── Volunteering ──────────────────────────────────────────────────────── */
+
+export function VolunteeringSection({ data, onChange }) {
+  const { save, saving, saved, error } = useSectionSave('volunteering', () => data)
+
+  const addEntry = () => onChange([...data, {
+    id: crypto.randomUUID(),
+    organization: '', role: '', location: '', start_date: '', end_date: '', bullets: [],
+  }])
+  const update = (id, patch) => onChange(data.map((e) => e.id === id ? { ...e, ...patch } : e))
+  const remove = (id) => onChange(data.filter((e) => e.id !== id))
+  const addBullet = (id) => update(id, { bullets: [...(data.find((e) => e.id === id)?.bullets || []), ''] })
+  const updateBullet = (id, idx, val) => {
+    const entry = data.find((e) => e.id === id)
+    const bullets = [...entry.bullets]
+    bullets[idx] = val
+    update(id, { bullets })
+  }
+  const removeBullet = (id, idx) => {
+    const entry = data.find((e) => e.id === id)
+    update(id, { bullets: entry.bullets.filter((_, i) => i !== idx) })
+  }
+
+  return (
+    <div style={f.section} data-testid="section-volunteering">
+      <SectionHeader title="Volunteering" onSave={save} saving={saving} saved={saved} error={error} sectionId="volunteering" />
+      {data.map((entry) => (
+        <div key={entry.id} style={f.card}>
+          <div style={f.cardHead}>
+            <span style={f.cardTitle}>{entry.role || 'New role'}{entry.organization ? ` — ${entry.organization}` : ''}</span>
+            <button onClick={() => remove(entry.id)} style={f.removeBtn}>Remove</button>
+          </div>
+          <div style={f.grid2}>
+            <Field label="Organization" value={entry.organization} onChange={(v) => update(entry.id, { organization: v })} placeholder="Red Cross" />
+            <Field label="Role" value={entry.role} onChange={(v) => update(entry.id, { role: v })} placeholder="Event Coordinator" />
+            <Field label="Location" value={entry.location} onChange={(v) => update(entry.id, { location: v })} placeholder="New York, NY" />
+            <div />
+            <Field label="Start date" value={entry.start_date} onChange={(v) => update(entry.id, { start_date: v })} placeholder="Jun 2023" />
+            <Field label="End date" value={entry.end_date} onChange={(v) => update(entry.id, { end_date: v })} placeholder="Present" />
+          </div>
+          <div style={f.subsectionLabel}>What you did</div>
+          {entry.bullets.map((b, i) => (
+            <div key={i} style={f.bulletRow}>
+              <input
+                value={b}
+                onChange={(e) => updateBullet(entry.id, i, e.target.value)}
+                style={{ ...f.input, flex: 1 }}
+                placeholder="Describe your contribution or impact…"
+              />
+              <button onClick={() => removeBullet(entry.id, i)} style={f.iconBtn} aria-label="Remove bullet">×</button>
+            </div>
+          ))}
+          <button onClick={() => addBullet(entry.id)} style={f.ghostBtn}>+ Add bullet</button>
+        </div>
+      ))}
+      <button onClick={addEntry} style={f.ghostBtn}>+ Add volunteering</button>
+    </div>
+  )
+}
+
+/* ── Projects ──────────────────────────────────────────────────────────── */
 
 export function ProjectsSection({ data, onChange, onOpenGitHubImport }) {
   const { save, saving, saved, error } = useSectionSave('projects', () => data)
@@ -288,21 +321,19 @@ export function ProjectsSection({ data, onChange, onOpenGitHubImport }) {
     <div style={f.section} data-testid="section-projects">
       <SectionHeader title="Projects" onSave={save} saving={saving} saved={saved} error={error} sectionId="projects" />
       {data.map((proj) => (
-        <div key={proj.id} style={f.expCard}>
-          <div style={f.expCardHeader}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={f.expTitle}>{proj.name || 'New Project'}</span>
-              {proj.source === 'github' && (
-                <span style={f.ghBadge}>GitHub</span>
-              )}
+        <div key={proj.id} style={f.card}>
+          <div style={f.cardHead}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+              <span style={f.cardTitle}>{proj.name || 'New project'}</span>
+              {proj.source === 'github' && <span style={f.ghBadge}>GitHub</span>}
             </div>
             <button onClick={() => removeProj(proj.id)} style={f.removeBtn}>Remove</button>
           </div>
           <div style={f.grid2}>
-            <Field label="Project Name" value={proj.name} onChange={(v) => updateProj(proj.id, { name: v })} placeholder="My Awesome App" />
+            <Field label="Project name" value={proj.name} onChange={(v) => updateProj(proj.id, { name: v })} placeholder="My Awesome App" />
             <Field label="Repo URL (optional)" value={proj.repo_url} onChange={(v) => updateProj(proj.id, { repo_url: v })} placeholder="https://github.com/..." />
             <div style={f.field}>
-              <label style={f.label}>Your Role</label>
+              <label style={f.label}>Your role</label>
               <select value={proj.your_role} onChange={(e) => updateProj(proj.id, { your_role: e.target.value })} style={f.select}>
                 <option value="solo_builder">Solo Builder</option>
                 <option value="contributor">Contributor</option>
@@ -319,15 +350,9 @@ export function ProjectsSection({ data, onChange, onOpenGitHubImport }) {
               </select>
             </div>
           </div>
-          <TextareaField
-            label="Purpose / Description"
-            value={proj.purpose}
-            onChange={(v) => updateProj(proj.id, { purpose: v })}
-            rows={2}
-            placeholder="What does this project do and what problem does it solve?"
-          />
+          <TextareaField label="Purpose / Description" value={proj.purpose} onChange={(v) => updateProj(proj.id, { purpose: v })} rows={2} placeholder="What does this project do and what problem does it solve?" />
           <div style={f.field}>
-            <label style={f.label}>Tech Stack (comma-separated)</label>
+            <label style={f.label}>Tech stack (comma-separated)</label>
             <input
               value={(proj.tech_stack || []).join(', ')}
               onChange={(e) => updateProj(proj.id, { tech_stack: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })}
@@ -335,7 +360,7 @@ export function ProjectsSection({ data, onChange, onOpenGitHubImport }) {
               placeholder="React, FastAPI, PostgreSQL"
             />
           </div>
-          <div style={f.bulletsLabel}>Key Features</div>
+          <div style={f.subsectionLabel}>Key features</div>
           {(proj.key_features || []).map((feat, i) => (
             <div key={i} style={f.bulletRow}>
               <input
@@ -350,161 +375,202 @@ export function ProjectsSection({ data, onChange, onOpenGitHubImport }) {
               />
               <button
                 onClick={() => updateProj(proj.id, { key_features: proj.key_features.filter((_, j) => j !== i) })}
-                style={f.removeBtn}
+                style={f.iconBtn}
+                aria-label="Remove feature"
               >×</button>
             </div>
           ))}
           <button
             onClick={() => updateProj(proj.id, { key_features: [...(proj.key_features || []), ''] })}
             style={f.ghostBtn}
-          >+ Add Feature</button>
+          >+ Add feature</button>
         </div>
       ))}
-
-      <div style={f.addRow}>
-        <button onClick={addProject} style={f.ghostBtn}>+ Add Project Manually</button>
-        <button onClick={onOpenGitHubImport} style={f.ghostBtnBlue}>Import from GitHub</button>
+      <div style={f.projectActions}>
+        <button onClick={addProject} style={f.ghostBtn}>+ Add manually</button>
+        <button onClick={onOpenGitHubImport} style={f.importBtn}>Import from GitHub</button>
       </div>
     </div>
   )
 }
 
-// ---------------------------------------------------------------------------
-// Styles (shared across all sections)
-// ---------------------------------------------------------------------------
-
+/* ── Styles ──────────────────────────────────────────────────────────────── */
 const f = {
   section: {
-    background: '#fff',
-    border: '1px solid #e2e8f0',
-    borderRadius: '12px',
-    padding: '24px',
-    marginBottom: '20px',
+    background: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-lg)',
+    padding: 'var(--space-6)',
+    marginBottom: 'var(--space-5)',
   },
   sectionHeader: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '20px',
+    marginBottom: 'var(--space-5)',
   },
-  sectionTitle: { fontSize: '16px', fontWeight: '600', color: '#1e293b' },
-  sectionActions: { display: 'flex', alignItems: 'center', gap: '12px' },
+  sectionTitle: {
+    fontFamily: 'var(--font-heading)',
+    fontSize: '15px',
+    fontWeight: 700,
+    color: 'var(--color-text)',
+    letterSpacing: '-0.01em',
+  },
+  sectionActions: { display: 'flex', alignItems: 'center', gap: 'var(--space-3)' },
   saveBtn: {
-    background: '#2563eb',
-    color: '#fff',
+    background: 'var(--color-accent)',
+    color: 'var(--color-surface)',
     border: 'none',
-    borderRadius: '6px',
-    padding: '6px 16px',
-    fontSize: '13px',
-    fontWeight: '600',
+    borderRadius: 'var(--radius-sm)',
+    padding: '6px var(--space-4)',
+    fontSize: '12.5px',
+    fontWeight: 600,
     cursor: 'pointer',
+    fontFamily: 'var(--font-ui)',
+    transition: 'opacity 0.12s',
   },
-  savedTxt: { fontSize: '13px', color: '#16a34a', fontWeight: '600' },
-  errTxt: { fontSize: '13px', color: '#dc2626', maxWidth: '240px' },
-  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' },
-  field: { display: 'flex', flexDirection: 'column', gap: '4px' },
-  label: { fontSize: '12px', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em' },
+  savedTxt: { fontSize: '12.5px', color: 'var(--color-success)', fontWeight: 600 },
+  errTxt: { fontSize: '12.5px', color: 'var(--color-error)', maxWidth: '240px' },
+  grid2: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-4)', marginBottom: 'var(--space-4)' },
+  field: { display: 'flex', flexDirection: 'column', gap: 'var(--space-1)' },
+  label: {
+    fontSize: '11.5px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    color: 'var(--color-text-3)',
+  },
   input: {
-    border: '1px solid #e2e8f0',
-    borderRadius: '6px',
-    padding: '8px 12px',
-    fontSize: '14px',
-    color: '#1e293b',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    padding: '9px var(--space-3)',
+    fontSize: '13.5px',
+    color: 'var(--color-text)',
+    fontFamily: 'var(--font-ui)',
+    background: 'var(--color-bg)',
     outline: 'none',
     width: '100%',
+    transition: 'border-color 0.12s',
   },
   select: {
-    border: '1px solid #e2e8f0',
-    borderRadius: '6px',
-    padding: '8px 12px',
-    fontSize: '14px',
-    color: '#1e293b',
-    background: '#fff',
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    padding: '9px var(--space-3)',
+    fontSize: '13.5px',
+    color: 'var(--color-text)',
+    background: 'var(--color-bg)',
+    fontFamily: 'var(--font-ui)',
     width: '100%',
   },
-  tagRow: { display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '12px' },
+  tagRow: { display: 'flex', flexWrap: 'wrap', gap: 'var(--space-2)', marginBottom: 'var(--space-3)' },
   tag: {
     display: 'inline-flex',
     alignItems: 'center',
-    gap: '4px',
-    background: '#eff6ff',
-    color: '#2563eb',
-    borderRadius: '999px',
+    gap: 'var(--space-1)',
+    background: 'var(--color-accent-subtle)',
+    color: 'var(--color-accent-text)',
+    borderRadius: 'var(--radius-full)',
     padding: '3px 10px',
     fontSize: '13px',
-    fontWeight: '500',
+    fontWeight: 500,
   },
   tagRemove: {
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: '#93c5fd',
-    fontSize: '16px',
+    color: 'var(--color-accent)',
+    fontSize: '15px',
     lineHeight: 1,
     padding: 0,
+    opacity: 0.7,
   },
-  addRow: { display: 'flex', gap: '12px', alignItems: 'center' },
+  addRow: { display: 'flex', gap: 'var(--space-3)', alignItems: 'center' },
   addBtn: {
-    background: '#2563eb',
-    color: '#fff',
+    background: 'var(--color-accent)',
+    color: 'var(--color-surface)',
     border: 'none',
-    borderRadius: '6px',
-    padding: '8px 16px',
+    borderRadius: 'var(--radius-md)',
+    padding: '9px var(--space-4)',
     fontSize: '13px',
-    fontWeight: '600',
+    fontWeight: 600,
     cursor: 'pointer',
+    fontFamily: 'var(--font-ui)',
+    flexShrink: 0,
   },
   ghostBtn: {
     background: 'none',
-    border: '1px dashed #cbd5e1',
-    borderRadius: '6px',
-    padding: '8px 16px',
+    border: '1px dashed var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    padding: '7px var(--space-4)',
     fontSize: '13px',
-    color: '#64748b',
+    color: 'var(--color-text-3)',
     cursor: 'pointer',
-    marginTop: '8px',
+    marginTop: 'var(--space-2)',
+    fontFamily: 'var(--font-ui)',
+    transition: 'border-color 0.12s',
   },
-  ghostBtnBlue: {
+  importBtn: {
     background: 'none',
-    border: '1px dashed #93c5fd',
-    borderRadius: '6px',
-    padding: '8px 16px',
+    border: '1px dashed var(--color-accent)',
+    borderRadius: 'var(--radius-md)',
+    padding: '7px var(--space-4)',
     fontSize: '13px',
-    color: '#2563eb',
+    color: 'var(--color-accent)',
+    fontWeight: 600,
     cursor: 'pointer',
-    marginTop: '8px',
-    fontWeight: '600',
+    marginTop: 'var(--space-2)',
+    fontFamily: 'var(--font-ui)',
   },
-  expCard: {
-    border: '1px solid #e2e8f0',
-    borderRadius: '8px',
-    padding: '16px',
-    marginBottom: '16px',
-    background: '#fafafa',
+  card: {
+    border: '1px solid var(--color-border)',
+    borderRadius: 'var(--radius-md)',
+    padding: 'var(--space-4)',
+    marginBottom: 'var(--space-4)',
+    background: 'var(--color-surface-raised)',
   },
-  expCardHeader: {
+  cardHead: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: '16px',
+    marginBottom: 'var(--space-4)',
   },
-  expTitle: { fontWeight: '600', fontSize: '14px', color: '#1e293b' },
+  cardTitle: { fontWeight: 600, fontSize: '13.5px', color: 'var(--color-text)' },
   removeBtn: {
     background: 'none',
     border: 'none',
-    color: '#94a3b8',
+    color: 'var(--color-text-3)',
     cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: '600',
+    fontSize: '12.5px',
+    fontWeight: 500,
+    fontFamily: 'var(--font-ui)',
   },
-  bulletsLabel: { fontSize: '12px', fontWeight: '600', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.03em', marginBottom: '8px', marginTop: '4px' },
-  bulletRow: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' },
+  subsectionLabel: {
+    fontSize: '11.5px',
+    fontWeight: 600,
+    textTransform: 'uppercase',
+    letterSpacing: '0.07em',
+    color: 'var(--color-text-3)',
+    marginBottom: 'var(--space-2)',
+    marginTop: 'var(--space-1)',
+  },
+  bulletRow: { display: 'flex', alignItems: 'center', gap: 'var(--space-2)', marginBottom: 'var(--space-2)' },
+  iconBtn: {
+    background: 'none',
+    border: 'none',
+    color: 'var(--color-text-3)',
+    cursor: 'pointer',
+    fontSize: '18px',
+    lineHeight: 1,
+    padding: '4px',
+    flexShrink: 0,
+  },
   ghBadge: {
-    background: '#f0fdf4',
-    color: '#16a34a',
-    borderRadius: '4px',
+    background: 'var(--color-success-bg)',
+    color: 'var(--color-success)',
+    borderRadius: 'var(--radius-sm)',
     padding: '1px 6px',
     fontSize: '11px',
-    fontWeight: '600',
+    fontWeight: 600,
   },
+  projectActions: { display: 'flex', gap: 'var(--space-3)', flexWrap: 'wrap' },
 }

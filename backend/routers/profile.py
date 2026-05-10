@@ -22,6 +22,7 @@ from models.profile import (
     ProjectsPatch,
     SkillsPatch,
     SummaryPatch,
+    VolunteeringPatch,
 )
 from services.db_service import (
     LOCAL_USER_ID,
@@ -33,7 +34,7 @@ from services.db_service import (
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
-_ALLOWED_SECTIONS = {"contact", "summary", "skills", "experiences", "education", "projects"}
+_ALLOWED_SECTIONS = {"contact", "summary", "skills", "experiences", "education", "projects", "volunteering"}
 
 
 def _sanitize_str(value: str) -> str:
@@ -92,6 +93,7 @@ async def patch_section(section: str, body: dict):
         "experiences": ExperiencesPatch,
         "education": EducationPatch,
         "projects": ProjectsPatch,
+        "volunteering": VolunteeringPatch,
     }
 
     model_cls = section_models[section]

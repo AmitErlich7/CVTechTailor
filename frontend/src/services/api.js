@@ -65,6 +65,10 @@ export async function patchSection(section, data) {
 // GitHub
 // -------------------------------------------------------------------------
 
+export async function fetchGitHubProfile(username) {
+  return request('POST', '/github/fetch-profile', { username })
+}
+
 export async function importGitHubRepo(repoUrl) {
   return request('POST', '/github/import', { repo_url: repoUrl })
 }

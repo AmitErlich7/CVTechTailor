@@ -139,6 +139,63 @@ async def fetch_repo_data(repo_url: str, github_token: Optional[str] = None) -> 
     return data
 
 
+def parse_profile_url(github_input: str) -> str:
+    """Extract username from a GitHub profile URL or bare username."""
+    url = github_input.strip().rstrip("/")
+    url = re.sub(r"^https?://", "", url)
+    url = re.sub(r"^github\.com/", "", url)
+    parts = [p for p in url.split("/") if p]
+    return parts[0] if parts else github_input.strip()
+
+
+async def fetch_user_repos(github_input: str, github_token: Optional[str] = None) -> list:
+    """Fetch up to 50 public repos for a GitHub user, sorted by most recently updated."""
+    username = parse_profile_url(github_input)
+    gh = _get_github_client(github_token)
+
+    try:
+        user = gh.get_user(username)
+    except UnknownObjectException:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"GitHub user '{username}' not found.",
+        )
+    except RateLimitExceededException:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="GitHub API rate limit exceeded. Please try again later.",
+            headers={"Retry-After": "60"},
+        )
+    except GithubException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"GitHub API error: {exc.data.get('message', str(exc))}",
+        )
+
+    repos = []
+    try:
+        for repo in user.get_repos(type="public", sort="updated"):
+            repos.append({
+                "name": repo.name,
+                "full_name": repo.full_name,
+                "description": repo.description or "",
+                "url": repo.html_url,
+                "language": repo.language or "",
+                "stars": repo.stargazers_count,
+                "updated_at": repo.updated_at.isoformat() if repo.updated_at else "",
+                "is_fork": repo.fork,
+            })
+            if len(repos) >= 50:
+                break
+    except GithubException as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"GitHub API error: {exc.data.get('message', str(exc))}",
+        )
+
+    return repos
+
+
 def build_repo_context(repo_data: dict) -> str:
     """Format fetched repo data into a prompt-ready context string."""
     parts = []
